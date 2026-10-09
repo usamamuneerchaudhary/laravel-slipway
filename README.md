@@ -1,3 +1,11 @@
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/usamamuneerchaudhary/laravel-slipway/main/public/images/slipway-logo-dark.png">
+    <source media="(prefers-color-scheme: light)" srcset="https://raw.githubusercontent.com/usamamuneerchaudhary/laravel-slipway/main/public/images/slipway-logo-light.png">
+    <img alt="Slipway" src="https://raw.githubusercontent.com/usamamuneerchaudhary/laravel-slipway/main/public/images/slipway-logo-light.png" width="420">
+  </picture>
+</p>
+
 # Slipway
 
 **Define your CI/CD once, in PHP. Compile it to GitHub Actions, Bitbucket Pipelines and GitLab CI.**
