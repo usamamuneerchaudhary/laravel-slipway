@@ -13,8 +13,8 @@ use Usamamuneerchaudhary\Slipway\Contracts\Driver;
 use Usamamuneerchaudhary\Slipway\Model\Pipeline;
 use Usamamuneerchaudhary\Slipway\Model\Support;
 use Usamamuneerchaudhary\Slipway\Policies\PolicyEngine;
-use Usamamuneerchaudhary\Slipway\Policies\Violation;
 use Usamamuneerchaudhary\Slipway\Security\SecretScanner;
+use Usamamuneerchaudhary\Slipway\Support\ActionPins;
 
 /**
  * config array -> validate -> neutral pipeline -> policies -> one YAML file per enabled driver.
@@ -93,6 +93,14 @@ final class Compiler
             }
 
             $path = $driverConfig['path'] ?? $driver->defaultPath();
+
+            if ($normalized['strict'] && $name === 'github') {
+                $unpinned = ActionPins::unpinned($yaml);
+                if ($unpinned !== []) {
+                    $warnings[] = 'GitHub Actions: ' . implode(', ', array_keys($unpinned))
+                        . ' use mutable version tags instead of commit SHAs. Run "' . $normalized['artisan'] . ' slipway:pin" and add the result to drivers.github.options.pins.';
+                }
+            }
 
             // Last line of defence: a credential must never reach a committed pipeline file.
             foreach ($this->scanner->scanString($yaml, $path) as $finding) {

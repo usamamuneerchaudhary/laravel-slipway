@@ -169,12 +169,41 @@ abstract class AbstractDriver implements Driver
         return "set -e\n" . $script . "\n";
     }
 
+    /**
+     * Installs the official Node.js binary from nodejs.org and verifies the tarball against the
+     * SHA-256 checksums nodejs.org publishes next to it. Nothing is piped into a shell.
+     *
+     * "22" installs the latest 22.x, "22.11" the latest 22.11.x and "22.11.0" exactly that release.
+     */
     protected function nodeInstall(string $version): string
     {
-        $major = explode('.', $version)[0];
+        $parts = explode('.', $version);
+        $major = $parts[0];
 
-        // Download first, then run: `curl | bash` hides a failed download behind bash's exit status.
-        return 'curl -fsSL -o /tmp/nodesource-setup.sh https://deb.nodesource.com/setup_' . $major . ".x\nbash /tmp/nodesource-setup.sh\nrm -f /tmp/nodesource-setup.sh\napt-get install -y -qq nodejs";
+        $dist = count($parts) === 3 ? 'v' . $version : 'latest-v' . $major . '.x';
+        $pattern = match (count($parts)) {
+            1 => 'node-v[0-9.]*',
+            2 => 'node-v' . $major . '\\.' . $parts[1] . '\\.[0-9]*',
+            default => 'node-v' . $major . '\\.' . $parts[1] . '\\.' . $parts[2],
+        };
+
+        $template = <<<'SH'
+case "$(uname -m)" in
+  x86_64) NODE_ARCH=x64 ;;
+  aarch64|arm64) NODE_ARCH=arm64 ;;
+  *) echo "Unsupported CPU architecture for Node.js: $(uname -m)" >&2; exit 1 ;;
+esac
+NODE_DIST=https://nodejs.org/dist/__DIST__
+curl -fsSL -o /tmp/node-shasums.txt "$NODE_DIST/SHASUMS256.txt"
+NODE_FILE="$(grep -o "__PATTERN__-linux-$NODE_ARCH\.tar\.gz" /tmp/node-shasums.txt | head -n 1)"
+if [ -z "$NODE_FILE" ]; then echo "No Node.js __VERSION__ build found for linux-$NODE_ARCH" >&2; exit 1; fi
+curl -fsSL -o "/tmp/$NODE_FILE" "$NODE_DIST/$NODE_FILE"
+(cd /tmp && grep " $NODE_FILE\$" node-shasums.txt | sha256sum -c -)
+tar -xzf "/tmp/$NODE_FILE" -C /usr/local --strip-components=1 --no-same-owner
+rm -f "/tmp/$NODE_FILE" /tmp/node-shasums.txt
+SH;
+
+        return strtr($template, ['__DIST__' => $dist, '__PATTERN__' => $pattern, '__VERSION__' => $version]);
     }
 
     /** @param array<string,string> $env */

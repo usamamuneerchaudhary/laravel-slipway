@@ -11,6 +11,7 @@ use Usamamuneerchaudhary\Slipway\Console\CompileCommand;
 use Usamamuneerchaudhary\Slipway\Console\DriversCommand;
 use Usamamuneerchaudhary\Slipway\Console\ExplainCommand;
 use Usamamuneerchaudhary\Slipway\Console\InitCommand;
+use Usamamuneerchaudhary\Slipway\Console\PinCommand;
 use Usamamuneerchaudhary\Slipway\Console\ScanCommand;
 use Usamamuneerchaudhary\Slipway\Console\ValidateCommand;
 use Usamamuneerchaudhary\Slipway\Console\VerifyCommand;
@@ -67,6 +68,7 @@ final class SlipwayServiceProvider extends ServiceProvider
             DriversCommand::class,
             ScanCommand::class,
             VerifyCommand::class,
+            PinCommand::class,
         ]);
     }
 }
