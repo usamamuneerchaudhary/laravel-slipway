@@ -1,0 +1,69 @@
+{
+    "name": "usamamuneerchaudhary/laravel-slipway",
+    "description": "Define your CI/CD pipeline once in config/slipway.php and compile it to GitHub Actions, Bitbucket Pipelines and GitLab CI.",
+    "keywords": [
+        "laravel",
+        "ci",
+        "cd",
+        "ci-cd",
+        "github-actions",
+        "bitbucket-pipelines",
+        "gitlab-ci",
+        "pipelines",
+        "devops",
+        "policy-as-code"
+    ],
+    "license": "MIT",
+    "type": "library",
+    "homepage": "https://github.com/usamamuneerchaudhary/laravel-slipway",
+    "authors": [
+        {
+            "name": "Usama Muneer Chaudhary",
+            "homepage": "https://github.com/usamamuneerchaudhary"
+        }
+    ],
+    "require": {
+        "php": "^8.2",
+        "illuminate/console": "^11.0|^12.0|^13.0",
+        "illuminate/contracts": "^11.0|^12.0|^13.0",
+        "illuminate/support": "^11.0|^12.0|^13.0"
+    },
+    "require-dev": {
+        "orchestra/testbench": "^9.0|^10.0|^11.0",
+        "pestphp/pest": "^4.0|^5.0",
+        "phpunit/phpunit": "^12.0|^13.0"
+    },
+    "autoload": {
+        "psr-4": {
+            "Usamamuneerchaudhary\\Slipway\\": "src/"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "Usamamuneerchaudhary\\Slipway\\Tests\\": "tests/"
+        }
+    },
+    "extra": {
+        "laravel": {
+            "providers": [
+                "Usamamuneerchaudhary\\Slipway\\SlipwayServiceProvider"
+            ]
+        }
+    },
+    "scripts": {
+        "post-autoload-dump": [
+            "@php vendor/bin/testbench package:discover --ansi"
+        ],
+        "test": "vendor/bin/pest",
+        "slipway:compile": "vendor/bin/testbench slipway:compile",
+        "slipway:check": "vendor/bin/testbench slipway:check"
+    },
+    "config": {
+        "sort-packages": true,
+        "allow-plugins": {
+            "pestphp/pest-plugin": true
+        }
+    },
+    "minimum-stability": "stable",
+    "prefer-stable": true
+}
