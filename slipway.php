@@ -19,10 +19,20 @@ return [
     'name' => 'CI',
 
     'drivers' => [
-        'github' => ['enabled' => true],
+        'github' => [
+            'enabled' => true,
+            // Resolved with `vendor/bin/testbench slipway:pin`.
+            'options' => [
+                'pins' => [
+                    'actions/cache' => '0057852bfaa89a56745cba8c7296529d2fc39830', // v4
+                    'actions/checkout' => '11d5960a326750d5838078e36cf38b85af677262', // v4
+                    'shivammathur/setup-php' => 'eb7c497e18156a6bbabfef1d3a82760b9eda3962', // v2
+                ],
+            ],
+        ],
     ],
 
-    'strict' => false,
+    'strict' => true,
     'guard' => true,
 
     // Libraries do not commit composer.lock.
@@ -50,7 +60,7 @@ return [
     'env' => [],
 
     'stages' => [
-        'quality' => ['composer-audit', 'secret-scan'],
+        'quality' => ['pint', 'composer-validate', 'composer-audit', 'secret-scan'],
 
         'test' => [
             'matrix' => true,
