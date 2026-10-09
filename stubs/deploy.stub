@@ -1,0 +1,109 @@
+<?php
+
+/*
+|--------------------------------------------------------------------------
+| Slipway: CI + continuous delivery over SSH
+|--------------------------------------------------------------------------
+|
+| Flow: quality -> test -> build ONE artifact -> staging -> (manual approval) -> production.
+| Every environment deploys the exact artifact that was tested, then verifies the release
+| and rolls back automatically if the health check fails.
+|
+| BEFORE THE FIRST DEPLOY, edit every value marked TODO below, then on each server:
+|
+|   mkdir -p <path>/shared && cp .env.production <path>/shared/.env     # your production .env
+|
+| and add these secrets in your provider's CI settings (names only are listed here):
+|   SSH_PRIVATE_KEY   a deploy key (private half) authorised on the servers
+|   SSH_KNOWN_HOSTS   output of: ssh-keyscan -H your.server.example
+|   STAGING_URL       e.g. https://staging.your-app.example
+|   PRODUCTION_URL    e.g. https://your-app.example
+|
+*/
+
+return [
+
+    'name' => 'CI/CD',
+
+    'drivers' => [
+__DRIVERS__
+    ],
+
+    'strict' => false,
+    'guard' => true,
+    'lockfile' => true,                // applications commit composer.lock
+
+    'php' => ['8.3', '8.4'],
+    'node' => null,                    // TODO: '22' if you build assets with Vite
+
+    'triggers' => [
+        'push' => ['main'],
+        'tags' => [],
+        'pull_request' => true,
+        'schedule' => [],
+        'manual' => true,
+        'paths_ignore' => [],
+    ],
+
+    'concurrency' => ['cancel_superseded' => true],
+    'timeouts' => ['default' => 20],
+    'cache' => true,
+    'env' => [],
+
+    'stages' => [
+        'quality' => ['pint', 'larastan', 'composer-audit', 'secret-scan'],
+
+        'test' => [
+            'matrix' => true,
+            'steps' => ['pest'],
+        ],
+
+        // Add 'build-assets' before 'build-artifact' if you compile front-end assets.
+        'build' => ['build-artifact'],
+    ],
+
+    'environments' => [
+
+        'staging' => [
+            'branch' => 'main',
+            'via' => 'ssh',
+            'verify' => ['url_secret' => 'STAGING_URL', 'path' => '/up'],
+            'rollback' => true,
+            'options' => [
+                'host' => 'staging.example.com',   // TODO
+                'user' => 'deploy',                // TODO
+                'path' => '/var/www/staging',      // TODO
+                // 'post_deploy' => ['php artisan queue:restart'],
+            ],
+        ],
+
+        'production' => [
+            'after' => 'staging',
+            'approval' => true,
+            'via' => 'ssh',
+            'verify' => ['url_secret' => 'PRODUCTION_URL', 'path' => '/up'],
+            'rollback' => true,
+            'options' => [
+                'host' => 'app.example.com',       // TODO
+                'user' => 'deploy',                // TODO
+                'path' => '/var/www/app',          // TODO
+                // 'post_deploy' => ['php artisan queue:restart'],
+            ],
+        ],
+
+    ],
+
+    // Compilation fails if a change would weaken these guarantees.
+    'policies' => [
+        'tests-before-deploy',
+        'audit-before-production',
+        'approval-for-production',
+        'verify-production',
+        'rollback-for-production',
+    ],
+
+    'secrets' => ['SSH_PRIVATE_KEY', 'SSH_KNOWN_HOSTS', 'STAGING_URL', 'PRODUCTION_URL'],
+
+    // 'notifications' => ['slack' => ['secret' => 'SLACK_WEBHOOK', 'on' => ['failure']]],
+
+];
