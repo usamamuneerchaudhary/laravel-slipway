@@ -6,7 +6,6 @@
   </picture>
 </p>
 
-# Slipway
 
 **Define your CI/CD once, in PHP. Compile it to GitHub Actions, Bitbucket Pipelines and GitLab CI.**
 
