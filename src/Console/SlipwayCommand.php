@@ -6,8 +6,8 @@ namespace Usamamuneerchaudhary\Slipway\Console;
 
 use Illuminate\Console\Command;
 use RuntimeException;
-use Usamamuneerchaudhary\Slipway\CompileResult;
 use Usamamuneerchaudhary\Slipway\Compiler;
+use Usamamuneerchaudhary\Slipway\CompileResult;
 use Usamamuneerchaudhary\Slipway\Config\ConfigException;
 use Usamamuneerchaudhary\Slipway\Support\ConfigLocator;
 

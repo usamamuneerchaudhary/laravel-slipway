@@ -1,0 +1,22 @@
+{
+    "preset": "psr12",
+    "rules": {
+        "declare_strict_types": true,
+        "concat_space": {
+            "spacing": "one"
+        },
+        "not_operator_with_successor_space": true,
+        "unary_operator_spaces": false,
+        "single_line_empty_body": false,
+        "phpdoc_align": false,
+        "new_with_parentheses": false,
+        "no_unused_imports": true,
+        "ordered_imports": {
+            "sort_algorithm": "alpha"
+        }
+    },
+    "notPath": [
+        "config/slipway.php",
+        "slipway.php"
+    ]
+}

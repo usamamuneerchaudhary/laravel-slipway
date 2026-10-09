@@ -5,9 +5,9 @@ declare(strict_types=1);
 namespace Usamamuneerchaudhary\Slipway\Steps;
 
 use InvalidArgumentException;
-use Usamamuneerchaudhary\Slipway\Support\ServiceCatalog;
 use Usamamuneerchaudhary\Slipway\Model\Contribution;
 use Usamamuneerchaudhary\Slipway\Model\Step;
+use Usamamuneerchaudhary\Slipway\Support\ServiceCatalog;
 
 /**
  * Shared behaviour for test runners (Pest, PHPUnit): prepare a Laravel .env, run the

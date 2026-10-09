@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace Usamamuneerchaudhary\Slipway\Policies;
 
-use Usamamuneerchaudhary\Slipway\Deployers\DeployScript;
 use Usamamuneerchaudhary\Slipway\Model\Pipeline;
 
 /**
