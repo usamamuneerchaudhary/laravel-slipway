@@ -110,7 +110,13 @@ final class PhpBootstrap
             $lines[] = 'docker-php-ext-enable ' . implode(' ', $names);
         }
 
-        $lines[] = 'curl -sS https://getcomposer.org/installer | php -- --install-dir=/usr/local/bin --filename=composer --quiet';
+        // Composer's documented, checksum-verified installation (never pipe the installer straight into php).
+        $lines[] = 'curl -fsSL -o /tmp/composer-setup.php https://getcomposer.org/installer';
+        $lines[] = 'EXPECTED_CHECKSUM="$(curl -fsSL https://composer.github.io/installer.sig)"';
+        $lines[] = 'ACTUAL_CHECKSUM="$(php -r "echo hash_file(\'sha384\', \'/tmp/composer-setup.php\');")"';
+        $lines[] = 'if [ -z "$EXPECTED_CHECKSUM" ] || [ "$EXPECTED_CHECKSUM" != "$ACTUAL_CHECKSUM" ]; then echo "Composer installer checksum mismatch" >&2; exit 1; fi';
+        $lines[] = 'php /tmp/composer-setup.php --install-dir=/usr/local/bin --filename=composer --quiet';
+        $lines[] = 'rm -f /tmp/composer-setup.php';
 
         return implode("\n", $lines);
     }

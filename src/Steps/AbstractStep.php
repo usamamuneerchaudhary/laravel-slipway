@@ -61,7 +61,7 @@ abstract class AbstractStep implements PipelineStep
     /** Reject values that could break out of a single shell word. */
     protected function shellSafe(string $value, string $option): string
     {
-        if (preg_match('/^[A-Za-z0-9._\/=:@%+,\-]+$/', $value) !== 1) {
+        if (preg_match('/^[A-Za-z0-9._\/=:@%+,\-]+$/D', $value) !== 1) {
             throw new InvalidArgumentException(
                 "option [{$option}] contains characters that are not allowed in a command argument: [{$value}]"
             );

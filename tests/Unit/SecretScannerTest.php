@@ -141,6 +141,48 @@ final class SecretScannerTest extends TestCase
         $this->assertSame([], (new SecretScanner(['tests/fixtures']))->scanDirectory($this->dir));
     }
 
+    private function initGitRepository(): void
+    {
+        exec('git -C ' . escapeshellarg($this->dir) . ' init -q 2>&1', $output, $code);
+
+        if ($code !== 0) {
+            $this->markTestSkipped('git is not available.');
+        }
+    }
+
+    public function test_in_a_git_repository_a_gitignored_env_file_is_not_reported(): void
+    {
+        $this->initGitRepository();
+        file_put_contents($this->dir . '/.gitignore', ".env\n");
+        file_put_contents($this->dir . '/.env', 'SLACK=' . $this->samples()['Slack webhook URL'] . "\n");
+
+        $this->assertSame([], (new SecretScanner())->scanDirectory($this->dir));
+    }
+
+    public function test_in_a_git_repository_an_unignored_env_file_is_flagged_at_any_depth(): void
+    {
+        $this->initGitRepository();
+        mkdir($this->dir . '/services/api', 0775, true);
+        file_put_contents($this->dir . '/services/api/.env', "APP_KEY=base64:abc\n");
+
+        $findings = (new SecretScanner())->scanDirectory($this->dir);
+
+        $this->assertCount(1, $findings);
+        $this->assertSame('Committed credentials file', $findings[0]->type);
+        $this->assertSame('services/api/.env', $findings[0]->location);
+    }
+
+    public function test_in_a_git_repository_credentials_in_untracked_files_are_found(): void
+    {
+        $this->initGitRepository();
+        file_put_contents($this->dir . '/notes.md', 'token ' . $this->samples()['GitHub token'] . "\n");
+
+        $findings = (new SecretScanner())->scanDirectory($this->dir);
+
+        $this->assertCount(1, $findings);
+        $this->assertSame('notes.md:1', $findings[0]->location);
+    }
+
     public function test_binary_and_oversized_files_are_skipped(): void
     {
         file_put_contents($this->dir . '/image.bin', "\0\0" . $this->samples()['GitHub token']);

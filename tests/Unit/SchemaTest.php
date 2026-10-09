@@ -77,6 +77,12 @@ final class SchemaTest extends TestCase
         $this->assertHasError('reserved', Fixture::minimal(['stages' => ['deploy-eu' => ['pest']]]));
     }
 
+    public function test_names_with_a_trailing_newline_are_rejected(): void
+    {
+        $this->assertHasError('must be lowercase', Fixture::minimal(['stages' => ["qa\n" => ['pest']]]));
+        $this->assertHasError('secrets', Fixture::minimal(['secrets' => ["STAGING_URL\n"]]));
+    }
+
     public function test_stage_names_must_be_safe_identifiers(): void
     {
         $this->assertHasError('must be lowercase', Fixture::minimal(['stages' => ['My Stage' => ['pest']]]));

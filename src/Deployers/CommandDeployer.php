@@ -48,7 +48,7 @@ final class CommandDeployer extends AbstractDeployer
         }
 
         foreach ($o['secrets'] ?? [] as $i => $name) {
-            if (! is_string($name) || preg_match('/^[A-Z][A-Z0-9_]*$/', $name) !== 1) {
+            if (! is_string($name) || preg_match('/^[A-Z][A-Z0-9_]*$/D', $name) !== 1) {
                 $errors[] = "option [secrets.{$i}] must be an UPPER_SNAKE_CASE secret name";
             }
         }

@@ -46,17 +46,17 @@ final class SshDeployer extends AbstractDeployer
         $errors = $this->unknownOptions($o, self::KNOWN);
 
         $host = $o['host'] ?? null;
-        if (! is_string($host) || preg_match('/^[A-Za-z0-9]([A-Za-z0-9.\-]*[A-Za-z0-9])?$/', $host) !== 1) {
+        if (! is_string($host) || preg_match('/^[A-Za-z0-9]([A-Za-z0-9.\-]*[A-Za-z0-9])?$/D', $host) !== 1) {
             $errors[] = 'option [host] is required and must be a hostname or IPv4 address';
         }
 
         $user = $o['user'] ?? null;
-        if (! is_string($user) || preg_match('/^[a-z_][a-z0-9_-]*$/', $user) !== 1) {
+        if (! is_string($user) || preg_match('/^[a-z_][a-z0-9_-]*$/D', $user) !== 1) {
             $errors[] = 'option [user] is required and must be a plain unix username';
         }
 
         $path = $o['path'] ?? null;
-        if (! is_string($path) || preg_match('#^/[A-Za-z0-9_./-]+$#', $path) !== 1 || str_contains($path, '..')) {
+        if (! is_string($path) || preg_match('#^/[A-Za-z0-9_./-]+$#D', $path) !== 1 || str_contains($path, '..')) {
             $errors[] = 'option [path] is required and must be an absolute path such as /var/www/app';
         }
 
@@ -128,9 +128,10 @@ final class SshDeployer extends AbstractDeployer
         $template = <<<'SH'
 umask 077
 mkdir -p "$HOME/.ssh"
+trap 'rm -f "$HOME/.ssh/slipway_deploy_key"' EXIT
 printf '%s\n' "$__KEY__" > "$HOME/.ssh/slipway_deploy_key"
 printf '%s\n' "$__KNOWN__" > "$HOME/.ssh/known_hosts"
-SSH_OPTS="-i $HOME/.ssh/slipway_deploy_key -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes -p __PORT__"
+SSH_OPTS="-i $HOME/.ssh/slipway_deploy_key -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes -o BatchMode=yes -o ConnectTimeout=20 -o ServerAliveInterval=30 -o ServerAliveCountMax=4 -p __PORT__"
 TARGET=__USER__@__HOST__
 BASE=__PATH__
 RELEASE=$(date -u +%Y%m%d%H%M%S)
@@ -161,11 +162,13 @@ ln -sfn "$BASE/shared/storage" storage
 __STORAGE_LINK____MIGRATE____OPTIMIZE____POST__ln -sfn "$BASE/releases/$RELEASE" "$BASE/current.tmp"
 mv -Tf "$BASE/current.tmp" "$BASE/current"
 cd "$BASE/releases"
+# Pruning is housekeeping: the release is already live, so a failure here must not fail the
+# deploy (which would skip verification and rollback).
 ls -1 | sort -r | tail -n +$((KEEP + 1)) | while read -r old; do
   if [ -n "$old" ] && [ "$BASE/releases/$old" != "$PREVIOUS" ] && [ "$old" != "$RELEASE" ]; then
-    rm -rf -- "$BASE/releases/$old"
+    rm -rf -- "$BASE/releases/$old" || echo "Warning: could not remove old release $old" >&2
   fi
-done
+done || true
 echo "Release $RELEASE is live"
 SLIPWAY_REMOTE_EOF
 SH;

@@ -28,6 +28,33 @@ final class HealthCheckerTest extends TestCase
         );
     }
 
+    public function test_the_built_in_http_client_runs_without_deprecation_notices(): void
+    {
+        $notices = [];
+        set_error_handler(static function (int $level, string $message) use (&$notices): bool {
+            $notices[] = $message;
+
+            return true;
+        });
+
+        try {
+            $result = (new HealthChecker(null, static fn (int $seconds) => null))->check('http://127.0.0.1:1', '/up', 200, 1, 1);
+        } finally {
+            restore_error_handler();
+        }
+
+        $this->assertFalse($result->ok);
+        $this->assertSame(0, $result->lastStatus);
+        $this->assertSame([], $notices);
+    }
+
+    public function test_a_url_with_a_trailing_newline_is_rejected(): void
+    {
+        $this->expectException(InvalidArgumentException::class);
+
+        $this->checker([200])->check("https://app.test\n", '/up', 200, 1, 1);
+    }
+
     public function test_it_passes_on_the_first_expected_status(): void
     {
         $sleeps = [];

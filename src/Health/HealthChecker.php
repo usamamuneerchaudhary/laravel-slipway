@@ -39,7 +39,7 @@ final class HealthChecker
 
     public function check(string $baseUrl, string $path = '/up', int $expect = 200, int $retries = 5, int $delay = 10): HealthResult
     {
-        if (preg_match('#^https?://[^\s]+$#', $baseUrl) !== 1) {
+        if (preg_match('#^https?://[^\s]+$#D', $baseUrl) !== 1) {
             throw new InvalidArgumentException('The health check URL must be an http(s) URL.');
         }
 
@@ -86,16 +86,20 @@ final class HealthChecker
                 CURLOPT_PROTOCOLS => CURLPROTO_HTTP | CURLPROTO_HTTPS,
             ]);
             curl_exec($ch);
-            $code = (int) curl_getinfo($ch, CURLINFO_HTTP_CODE);
-            curl_close($ch);
 
-            return $code;
+            // The handle is freed when it goes out of scope; curl_close() is deprecated since PHP 8.5.
+            return (int) curl_getinfo($ch, CURLINFO_HTTP_CODE);
         }
 
         $context = stream_context_create(['http' => ['timeout' => 15, 'ignore_errors' => true, 'follow_location' => 0]]);
         @file_get_contents($url, false, $context);
 
-        foreach ($http_response_header ?? [] as $header) {
+        // http_get_last_response_headers() replaces the $http_response_header magic variable (PHP 8.4+).
+        $headers = function_exists('http_get_last_response_headers')
+            ? http_get_last_response_headers()
+            : ($http_response_header ?? null);
+
+        foreach ($headers ?? [] as $header) {
             if (preg_match('#^HTTP/\S+\s+(\d{3})#', $header, $m) === 1) {
                 return (int) $m[1];
             }

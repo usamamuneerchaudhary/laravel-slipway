@@ -92,7 +92,7 @@ final class GitHubDriver extends AbstractDriver
 
         $this->pins = [];
         foreach ($o['pins'] ?? [] as $action => $ref) {
-            if (! isset(self::ACTIONS[$action]) || ! is_string($ref) || preg_match('/^[A-Za-z0-9._\/-]+$/', $ref) !== 1) {
+            if (! isset(self::ACTIONS[$action]) || ! is_string($ref) || preg_match('/^[A-Za-z0-9._\/-]+$/D', $ref) !== 1) {
                 throw new InvalidArgumentException(sprintf(
                     'github: option [pins] must map one of (%s) to a tag or commit SHA.',
                     implode(', ', array_keys(self::ACTIONS))
@@ -414,7 +414,7 @@ final class GitHubDriver extends AbstractDriver
             throw new InvalidArgumentException("github: pattern [{$pattern}] cannot contain a single quote.");
         }
 
-        if (preg_match('/^[^*?\[]*\*{1,2}$/', $pattern) === 1) {
+        if (preg_match('/^[^*?\[]*\*{1,2}$/D', $pattern) === 1) {
             return "startsWith({$subject}, '" . rtrim($pattern, '*') . "')";
         }
 

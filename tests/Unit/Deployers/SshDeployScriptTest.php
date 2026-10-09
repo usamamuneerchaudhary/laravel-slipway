@@ -187,4 +187,40 @@ final class SshDeployScriptTest extends TestCase
         $this->assertStringContainsString('"$SSH_PRIVATE_KEY"', $this->script);
         $this->assertStringNotContainsString('StrictHostKeyChecking=no', $this->script);
     }
+
+    public function test_ssh_never_prompts_and_never_hangs_on_a_dead_connection(): void
+    {
+        $this->assertStringContainsString('BatchMode=yes', $this->script);
+        $this->assertStringContainsString('ConnectTimeout=', $this->script);
+        $this->assertStringContainsString('ServerAliveInterval=', $this->script);
+    }
+
+    public function test_the_private_key_is_removed_from_the_runner_when_the_script_ends(): void
+    {
+        touch($this->base . '/shared/.env');
+
+        $healthy = $this->deploy();
+        $this->assertSame(0, $healthy['code'], $healthy['out']);
+        $this->assertFileDoesNotExist($this->h->home . '/.ssh/slipway_deploy_key');
+
+        $failed = $this->deploy(500);
+        $this->assertSame(1, $failed['code']);
+        $this->assertFileDoesNotExist($this->h->home . '/.ssh/slipway_deploy_key');
+    }
+
+    public function test_a_failure_while_pruning_old_releases_does_not_fail_a_live_deploy(): void
+    {
+        touch($this->base . '/shared/.env');
+        $this->deploy();
+        $this->deploy();
+
+        $this->h->tool('rm', "#!/bin/sh\ncase \"\$*\" in *\"/releases/\"*) echo 'rm: simulated failure' >&2; exit 1;; esac\nexec /bin/rm \"\$@\"\n");
+
+        $result = $this->deploy();
+
+        $this->assertSame(0, $result['code'], $result['out']);
+        $this->assertStringContainsString('Warning: could not remove old release', $result['out']);
+        $this->assertStringContainsString('Verified:', $result['out']);
+        $this->assertNotNull($this->current());
+    }
 }

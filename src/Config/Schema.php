@@ -100,7 +100,7 @@ final class Schema
         $out = [];
         foreach ($value as $name => $opts) {
             $path = "drivers.{$name}";
-            if (! is_string($name) || preg_match('/^[a-z][a-z0-9_-]*$/', $name) !== 1) {
+            if (! is_string($name) || preg_match('/^[a-z][a-z0-9_-]*$/D', $name) !== 1) {
                 $this->errors[] = "drivers: driver key [{$name}] must be a lowercase identifier such as \"github\".";
                 continue;
             }
@@ -152,7 +152,7 @@ final class Schema
 
     private function artisan(mixed $value): string
     {
-        if (! is_string($value) || preg_match('#^[A-Za-z0-9._/-]+( [A-Za-z0-9._/-]+)*$#', $value) !== 1) {
+        if (! is_string($value) || preg_match('#^[A-Za-z0-9._/-]+( [A-Za-z0-9._/-]+)*$#D', $value) !== 1) {
             $this->errors[] = 'artisan: must be a plain command such as "php artisan" or "vendor/bin/testbench".';
 
             return 'php artisan';
@@ -176,7 +176,7 @@ final class Schema
                 $v = (string) $v;
             }
 
-            if (! is_string($v) || preg_match('/^\d+\.\d+$/', $v) !== 1) {
+            if (! is_string($v) || preg_match('/^\d+\.\d+$/D', $v) !== 1) {
                 $this->errors[] = "{$path}.{$i}: [" . $this->show($v) . "] is not a valid PHP version (use strings like \"8.3\").";
                 continue;
             }
@@ -200,7 +200,7 @@ final class Schema
             $value = (string) $value;
         }
 
-        if (! is_string($value) || preg_match('/^\d+(\.\d+){0,2}$/', $value) !== 1) {
+        if (! is_string($value) || preg_match('/^\d+(\.\d+){0,2}$/D', $value) !== 1) {
             $this->errors[] = 'node: must be null or a version such as "22".';
 
             return null;
@@ -234,7 +234,7 @@ final class Schema
 
         $schedule = $this->stringList($value['schedule'] ?? [], 'triggers.schedule');
         foreach ($schedule as $i => $cron) {
-            if (preg_match('/^\S+( \S+){4}$/', $cron) !== 1) {
+            if (preg_match('/^\S+( \S+){4}$/D', $cron) !== 1) {
                 $this->errors[] = "triggers.schedule.{$i}: [{$cron}] is not a 5-field cron expression.";
             }
         }
@@ -262,7 +262,7 @@ final class Schema
         $out = [];
         foreach ($value as $name => $def) {
             $path = "stages.{$name}";
-            if (! is_string($name) || preg_match('/^[a-z][a-z0-9_-]*$/', $name) !== 1) {
+            if (! is_string($name) || preg_match('/^[a-z][a-z0-9_-]*$/D', $name) !== 1) {
                 $this->errors[] = "stages: stage name [{$name}] must be lowercase letters, digits, \"-\" or \"_\".";
                 continue;
             }
@@ -393,7 +393,7 @@ final class Schema
         $out = [];
         foreach ($value as $name => $def) {
             $path = "environments.{$name}";
-            if (! is_string($name) || preg_match('/^[a-z][a-z0-9_-]*$/', $name) !== 1) {
+            if (! is_string($name) || preg_match('/^[a-z][a-z0-9_-]*$/D', $name) !== 1) {
                 $this->errors[] = "environments: name [{$name}] must be lowercase letters, digits, \"-\" or \"_\".";
                 continue;
             }
@@ -450,7 +450,7 @@ final class Schema
         $url = $this->optString($value, 'url', "{$path}.url");
         $urlSecret = $this->optString($value, 'url_secret', "{$path}.url_secret");
 
-        if ($url !== null && preg_match('#^https?://[^\s]+$#', $url) !== 1) {
+        if ($url !== null && preg_match('#^https?://[^\s]+$#D', $url) !== 1) {
             $this->errors[] = "{$path}.url: [{$url}] must be an http(s) URL.";
         }
 
@@ -462,7 +462,7 @@ final class Schema
             $this->errors[] = "{$path}: set \"url\" or \"url_secret\", not both.";
         }
 
-        if ($urlSecret !== null && preg_match('/^[A-Z][A-Z0-9_]*$/', $urlSecret) !== 1) {
+        if ($urlSecret !== null && preg_match('/^[A-Z][A-Z0-9_]*$/D', $urlSecret) !== 1) {
             $this->errors[] = "{$path}.url_secret: [{$urlSecret}] must be an UPPER_SNAKE_CASE secret name.";
         }
 
@@ -525,7 +525,7 @@ final class Schema
             $this->checkKeys($cfg, ['secret', 'on'], $path);
 
             $secret = $cfg['secret'] ?? null;
-            if (! is_string($secret) || preg_match('/^[A-Z][A-Z0-9_]*$/', $secret) !== 1) {
+            if (! is_string($secret) || preg_match('/^[A-Z][A-Z0-9_]*$/D', $secret) !== 1) {
                 $this->errors[] = "{$path}.secret: required. The NAME of the secret holding the webhook URL (UPPER_SNAKE_CASE), never the URL itself.";
                 $secret = '';
             }
@@ -729,7 +729,7 @@ final class Schema
     {
         $names = $this->stringList($value, $path);
         foreach ($names as $name) {
-            if (preg_match('/^[A-Z][A-Z0-9_]*$/', $name) !== 1) {
+            if (preg_match('/^[A-Z][A-Z0-9_]*$/D', $name) !== 1) {
                 $this->errors[] = "{$path}: [{$name}] must be an UPPER_SNAKE_CASE secret NAME (declare names only, never values).";
             }
         }
@@ -748,7 +748,7 @@ final class Schema
 
         $out = [];
         foreach ($value as $name => $v) {
-            if (! is_string($name) || preg_match('/^[A-Za-z_][A-Za-z0-9_]*$/', $name) !== 1) {
+            if (! is_string($name) || preg_match('/^[A-Za-z_][A-Za-z0-9_]*$/D', $name) !== 1) {
                 $this->errors[] = "{$path}: [{$name}] is not a valid environment variable name.";
                 continue;
             }

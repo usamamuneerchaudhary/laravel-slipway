@@ -173,7 +173,8 @@ abstract class AbstractDriver implements Driver
     {
         $major = explode('.', $version)[0];
 
-        return 'curl -fsSL https://deb.nodesource.com/setup_' . $major . ".x | bash -\napt-get install -y -qq nodejs";
+        // Download first, then run: `curl | bash` hides a failed download behind bash's exit status.
+        return 'curl -fsSL -o /tmp/nodesource-setup.sh https://deb.nodesource.com/setup_' . $major . ".x\nbash /tmp/nodesource-setup.sh\nrm -f /tmp/nodesource-setup.sh\napt-get install -y -qq nodejs";
     }
 
     /** @param array<string,string> $env */

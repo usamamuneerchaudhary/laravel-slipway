@@ -115,7 +115,9 @@ config/slipway.php
 ```
 
 Output is deterministic: no timestamps, stable ordering, a short config hash in the header. That is what
-lets `slipway:check` detect drift with a byte comparison.
+lets `slipway:check` detect drift with a byte comparison (line endings are ignored, so a Windows checkout with
+`core.autocrlf` is not reported as drift). Neither the header nor the hash contains the Slipway version, so
+upgrading Slipway never makes your committed pipeline files stale; only a change to the output itself does.
 
 ## Configuration reference
 
@@ -171,7 +173,7 @@ Stage options: `steps`, `matrix`, `parallel` (one job per step), `php` (a versio
 | `larastan` / `phpstan` | PHPStan analysis | `level`, `memory_limit` |
 | `composer-audit` | `composer audit` (adds `--locked` when `lockfile` is true) | none |
 | `npm-audit` | `npm audit` | `level` |
-| `secret-scan` | `slipway:scan` | none |
+| `secret-scan` | `slipway:scan`: scans the files git tracks (plus untracked, non-ignored files), so a local gitignored `.env` is never reported | none |
 | `pest` / `phpunit` | Run the tests; prepares `.env` and the app key | `parallel`, `coverage` (`true` or a minimum %), `services`, `testsuite`, `prepare_env` |
 | `build-assets` | `npm ci && npm run build` | `script` |
 | `build-artifact` | Packs **one** tarball, `slipway-build.tar.gz` | `paths`, `optimize` |
@@ -227,7 +229,8 @@ Policies are checked at compile time. An error stops compilation, so a risky pip
 | `verify-production` | The environment has no `verify` health check. |
 | `rollback-for-production` | The environment does not roll back automatically. |
 
-All except `declared-secrets` apply to the `production` environment by default. Target others with options:
+`tests-before-deploy` applies to every environment by default. The others apply to the `production`
+environment only. Target specific environments with options:
 `'policies' => ['tests-before-deploy' => ['environments' => ['staging', 'production']]]`.
 
 Write your own by implementing `Policy`. See [docs/extending.md](docs/extending.md).
@@ -303,10 +306,16 @@ schedule on Bitbucket and GitLab). Slipway prints exactly which one when it comp
 * **Secrets by name only.** The config holds names; the provider holds values. The scanner checks the
   config and the generated YAML, and a finding never contains the matched value.
 * **Least privilege on GitHub.** `permissions: contents: read` by default, `persist-credentials: false` on
-  checkout, and action versions overridable by commit SHA.
+  checkout. Actions default to major-version tags (`actions/checkout@v4`), which are mutable: pin them to commit
+  SHAs with the `pins` driver option for supply-chain safety.
 * **No expression injection.** `${{ … }}` is rejected inside `run` scripts. Secrets reach scripts only as
   step `env`, never interpolated into the command line.
-* **Host keys are verified** for SSH deploys; there is no "accept any host" mode.
+* **Host keys are verified** for SSH deploys; there is no "accept any host" mode. SSH runs in batch mode with
+  connection timeouts, and the deploy key is removed from the runner when the script ends.
+* **Verified tooling on container providers.** On Bitbucket and GitLab the Composer installer is checked against
+  its published checksum before it runs. The Node.js setup script is downloaded and then executed (so a failed
+  download fails the job), but NodeSource publishes no checksum for it: use your own image through the `image`
+  driver option if you need a fully pinned toolchain.
 * **Validated inputs.** Hosts, users, paths and URL paths are validated before they reach a shell script.
 * **Deterministic output** makes review and drift detection reliable.
 

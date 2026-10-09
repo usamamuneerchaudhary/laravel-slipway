@@ -54,6 +54,16 @@ final class DeployersTest extends TestCase
         $this->assertInvalid('[key_secret]', $d, $this->env('ssh', $this->ssh(['key_secret' => 'my-key'])));
     }
 
+    public function test_ssh_values_with_a_trailing_newline_are_rejected(): void
+    {
+        $d = new SshDeployer();
+
+        $this->assertInvalid('[host]', $d, $this->env('ssh', $this->ssh(['host' => "app.example.com\n"])));
+        $this->assertInvalid('[user]', $d, $this->env('ssh', $this->ssh(['user' => "deploy\n"])));
+        $this->assertInvalid('[path]', $d, $this->env('ssh', $this->ssh(['path' => "/var/www/app\n"])));
+        $this->assertInvalid('[key_secret]', $d, $this->env('ssh', $this->ssh(['key_secret' => "SSH_PRIVATE_KEY\n"])));
+    }
+
     public function test_ssh_post_deploy_must_be_single_line_commands(): void
     {
         $d = new SshDeployer();

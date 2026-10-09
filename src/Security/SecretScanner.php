@@ -131,6 +131,12 @@ final class SecretScanner
     public function scanDirectory(string $root): array
     {
         $root = rtrim($root, '/\\');
+
+        $files = $this->repositoryFiles($root);
+        if ($files !== null) {
+            return $this->scanFiles($root, $files);
+        }
+
         $findings = [];
 
         foreach (self::COMMITTED_FILES as $name) {
@@ -146,6 +152,87 @@ final class SecretScanner
         $this->walk($root, '', $findings);
 
         return $findings;
+    }
+
+    /**
+     * Files git considers part of the project: tracked, plus untracked files that are not
+     * gitignored. A developer's local, gitignored `.env` is therefore never reported as "committed".
+     *
+     * @return list<string>|null Relative paths, or null when $root is not a git work tree (or git is unavailable).
+     */
+    private function repositoryFiles(string $root): ?array
+    {
+        if (! file_exists($root . '/.git') || ! function_exists('proc_open')) {
+            return null;
+        }
+
+        $process = @proc_open(
+            ['git', '-C', $root, 'ls-files', '-z', '--cached', '--others', '--exclude-standard'],
+            [1 => ['pipe', 'w'], 2 => ['pipe', 'w']],
+            $pipes,
+        );
+
+        if (! is_resource($process)) {
+            return null;
+        }
+
+        $output = (string) stream_get_contents($pipes[1]);
+        stream_get_contents($pipes[2]);
+        fclose($pipes[1]);
+        fclose($pipes[2]);
+
+        if (proc_close($process) !== 0) {
+            return null;
+        }
+
+        return array_values(array_filter(explode("\0", $output), static fn (string $path): bool => $path !== ''));
+    }
+
+    /**
+     * @param list<string> $files Relative paths from repositoryFiles().
+     * @return list<Finding>
+     */
+    private function scanFiles(string $root, array $files): array
+    {
+        $findings = [];
+
+        foreach ($files as $rel) {
+            $full = $root . '/' . $rel;
+
+            if (! is_file($full) || is_link($full) || $this->skippedDir($rel) || $this->ignored($rel)) {
+                continue;
+            }
+
+            if (in_array(basename($rel), self::COMMITTED_FILES, true)) {
+                $findings[] = new Finding(
+                    'Committed credentials file',
+                    $rel,
+                    'Remove it from the repository, add it to .gitignore, and rotate anything it contained.'
+                );
+            }
+
+            foreach ($this->scanFile($full, $rel) as $finding) {
+                $findings[] = $finding;
+            }
+        }
+
+        return $findings;
+    }
+
+    /** @return list<Finding> */
+    private function scanFile(string $full, string $rel): array
+    {
+        $size = @filesize($full);
+        if ($size === false || $size === 0 || $size > self::MAX_FILE_BYTES) {
+            return [];
+        }
+
+        $contents = @file_get_contents($full);
+        if ($contents === false || str_contains(substr($contents, 0, 8000), "\0")) {
+            return []; // unreadable or binary
+        }
+
+        return $this->scanString($contents, $rel);
     }
 
     /** @param list<Finding> $findings */
@@ -174,17 +261,7 @@ final class SecretScanner
                 continue;
             }
 
-            $size = @filesize($full);
-            if ($size === false || $size === 0 || $size > self::MAX_FILE_BYTES) {
-                continue;
-            }
-
-            $contents = @file_get_contents($full);
-            if ($contents === false || str_contains(substr($contents, 0, 8000), "\0")) {
-                continue; // unreadable or binary
-            }
-
-            foreach ($this->scanString($contents, $rel) as $finding) {
+            foreach ($this->scanFile($full, $rel) as $finding) {
                 $findings[] = $finding;
             }
         }

@@ -24,7 +24,7 @@ final class VaporDeployer extends AbstractDeployer
             $this->validSecretName($environment, 'secret', 'VAPOR_API_TOKEN'),
         );
 
-        if (! preg_match('/^[a-z][a-z0-9_-]*$/i', $this->vaporEnvironment($environment))) {
+        if (! preg_match('/^[a-z][a-z0-9_-]*$/iD', $this->vaporEnvironment($environment))) {
             $errors[] = 'option [environment] must be a plain Vapor environment name';
         }
 

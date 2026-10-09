@@ -21,7 +21,7 @@ final class Larastan extends AbstractStep
 
         if (isset($o['level'])) {
             $level = (string) $o['level'];
-            if ($level !== 'max' && preg_match('/^\d{1,2}$/', $level) !== 1) {
+            if ($level !== 'max' && preg_match('/^\d{1,2}$/D', $level) !== 1) {
                 throw new \InvalidArgumentException('option [level] must be 0-10 or "max"');
             }
             $cmd .= ' --level=' . $level;

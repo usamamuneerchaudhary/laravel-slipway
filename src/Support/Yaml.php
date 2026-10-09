@@ -147,7 +147,7 @@ final class Yaml
 
     private static function formatKey(string $key): string
     {
-        if ($key !== '' && preg_match('/^[A-Za-z0-9_][A-Za-z0-9_.\/\-\$\{\} ]*$/', $key) === 1
+        if ($key !== '' && preg_match('/^[A-Za-z0-9_][A-Za-z0-9_.\/\-\$\{\} ]*$/D', $key) === 1
             && ! str_ends_with($key, ' ') && ! str_contains($key, '  ')) {
             // "on" is intentionally emitted bare: GitHub Actions and YAML 1.2 treat it as a plain key.
             return self::needsQuotes($key) && $key !== 'on' ? self::quote($key) : $key;
@@ -193,16 +193,16 @@ final class Yaml
         }
 
         // Would be parsed as a non-string scalar (YAML 1.1 + 1.2 booleans, null, numbers).
-        if (preg_match('/^(true|false|yes|no|on|off|y|n|null|~)$/i', $s) === 1) {
+        if (preg_match('/^(true|false|yes|no|on|off|y|n|null|~)$/iD', $s) === 1) {
             return true;
         }
 
-        if (is_numeric($s) || preg_match('/^[-+]?(0x[0-9a-f]+|0o?[0-7]+|\.\d+|\d[\d_]*(\.\d*)?([eE][-+]?\d+)?)$/i', $s) === 1) {
+        if (is_numeric($s) || preg_match('/^[-+]?(0x[0-9a-f]+|0o?[0-7]+|\.\d+|\d[\d_]*(\.\d*)?([eE][-+]?\d+)?)$/iD', $s) === 1) {
             return true;
         }
 
         // Date-like and sexagesimal values (YAML 1.1) such as 2026-10-09 or 1:30.
-        if (preg_match('/^\d{4}-\d{2}-\d{2}/', $s) === 1 || preg_match('/^\d+(:\d+)+$/', $s) === 1) {
+        if (preg_match('/^\d{4}-\d{2}-\d{2}/', $s) === 1 || preg_match('/^\d+(:\d+)+$/D', $s) === 1) {
             return true;
         }
 

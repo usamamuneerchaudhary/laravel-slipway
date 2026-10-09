@@ -40,7 +40,7 @@ abstract class AbstractDeployer implements Deployer
     {
         $name = $environment->options[$key] ?? $default;
 
-        return is_string($name) && preg_match('/^[A-Z][A-Z0-9_]*$/', $name) === 1
+        return is_string($name) && preg_match('/^[A-Z][A-Z0-9_]*$/D', $name) === 1
             ? []
             : ["option [{$key}] must be an UPPER_SNAKE_CASE secret name"];
     }
