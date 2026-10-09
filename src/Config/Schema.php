@@ -407,7 +407,7 @@ final class Schema
 
             $via = $def['via'] ?? null;
             if (! is_string($via) || $via === '') {
-                $this->errors[] = "{$path}.via: required. Name a deployer alias (ssh, vapor, forge, envoyer, webhook, command) or a Deployer class.";
+                $this->errors[] = "{$path}.via: required. Name a deployer alias (ssh, vapor, forge, cloud, envoyer, webhook, command) or a Deployer class.";
                 $via = '';
             }
 

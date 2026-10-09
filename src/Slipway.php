@@ -10,25 +10,29 @@ use Usamamuneerchaudhary\Slipway\Contracts\Policy;
 use Usamamuneerchaudhary\Slipway\Deployers\CommandDeployer;
 use Usamamuneerchaudhary\Slipway\Deployers\EnvoyerDeployer;
 use Usamamuneerchaudhary\Slipway\Deployers\ForgeDeployer;
+use Usamamuneerchaudhary\Slipway\Deployers\LaravelCloudDeployer;
 use Usamamuneerchaudhary\Slipway\Deployers\SshDeployer;
 use Usamamuneerchaudhary\Slipway\Deployers\VaporDeployer;
 use Usamamuneerchaudhary\Slipway\Deployers\WebhookDeployer;
+use Usamamuneerchaudhary\Slipway\Policies\DeclaredSecrets;
 use Usamamuneerchaudhary\Slipway\Policies\PolicyEngine;
 use Usamamuneerchaudhary\Slipway\Policies\RequireApprovalForProduction;
 use Usamamuneerchaudhary\Slipway\Policies\RequireAuditBeforeProduction;
 use Usamamuneerchaudhary\Slipway\Policies\RequireRollback;
 use Usamamuneerchaudhary\Slipway\Policies\RequireTestsBeforeDeploy;
 use Usamamuneerchaudhary\Slipway\Policies\RequireVerification;
-use Usamamuneerchaudhary\Slipway\Policies\DeclaredSecrets;
 use Usamamuneerchaudhary\Slipway\Security\SecretScanner;
 use Usamamuneerchaudhary\Slipway\Steps\BuildArtifact;
 use Usamamuneerchaudhary\Slipway\Steps\BuildAssets;
 use Usamamuneerchaudhary\Slipway\Steps\ComposerAudit;
+use Usamamuneerchaudhary\Slipway\Steps\ComposerValidate;
 use Usamamuneerchaudhary\Slipway\Steps\Larastan;
 use Usamamuneerchaudhary\Slipway\Steps\NpmAudit;
+use Usamamuneerchaudhary\Slipway\Steps\NpmTest;
 use Usamamuneerchaudhary\Slipway\Steps\Pest;
 use Usamamuneerchaudhary\Slipway\Steps\PhpUnit;
 use Usamamuneerchaudhary\Slipway\Steps\Pint;
+use Usamamuneerchaudhary\Slipway\Steps\Rector;
 use Usamamuneerchaudhary\Slipway\Steps\SecretScan;
 use Usamamuneerchaudhary\Slipway\Support\Registry;
 
@@ -40,7 +44,7 @@ use Usamamuneerchaudhary\Slipway\Support\Registry;
  */
 final class Slipway
 {
-    public const VERSION = '1.0.0';
+    public const string VERSION = '1.2';
 
     /** @param (callable(class-string):object)|null $resolver Container `make`, for DI into user classes. */
     public static function steps(?callable $resolver = null): Registry
@@ -52,7 +56,10 @@ final class Slipway
             'larastan' => Larastan::class,
             'phpstan' => Larastan::class,
             'composer-audit' => ComposerAudit::class,
+            'composer-validate' => ComposerValidate::class,
             'npm-audit' => NpmAudit::class,
+            'npm-test' => NpmTest::class,
+            'rector' => Rector::class,
             'secret-scan' => SecretScan::class,
             'pest' => Pest::class,
             'phpunit' => PhpUnit::class,
@@ -74,6 +81,7 @@ final class Slipway
             'ssh' => SshDeployer::class,
             'vapor' => VaporDeployer::class,
             'forge' => ForgeDeployer::class,
+            'cloud' => LaravelCloudDeployer::class,
             'envoyer' => EnvoyerDeployer::class,
             'webhook' => WebhookDeployer::class,
             'command' => CommandDeployer::class,

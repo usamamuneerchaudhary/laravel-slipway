@@ -9,6 +9,7 @@ use Usamamuneerchaudhary\Slipway\Config\ConfigException;
 use Usamamuneerchaudhary\Slipway\Deployers\CommandDeployer;
 use Usamamuneerchaudhary\Slipway\Deployers\EnvoyerDeployer;
 use Usamamuneerchaudhary\Slipway\Deployers\ForgeDeployer;
+use Usamamuneerchaudhary\Slipway\Deployers\LaravelCloudDeployer;
 use Usamamuneerchaudhary\Slipway\Deployers\SshDeployer;
 use Usamamuneerchaudhary\Slipway\Deployers\VaporDeployer;
 use Usamamuneerchaudhary\Slipway\Deployers\WebhookDeployer;
@@ -112,6 +113,61 @@ final class DeployersTest extends TestCase
         $this->assertInvalid('UPPER_SNAKE_CASE', new ForgeDeployer(), $this->env('forge', ['secret' => 'https://forge.laravel.com/x']));
     }
 
+    public function test_laravel_cloud_posts_to_its_deploy_hook_for_the_commit_that_passed_ci(): void
+    {
+        $d = new LaravelCloudDeployer();
+        $env = $this->env('cloud');
+
+        $this->assertSame([], $d->validate($env));
+        $this->assertSame(['LARAVEL_CLOUD_DEPLOY_HOOK'], $d->requiredSecrets($env));
+        $this->assertSame(['curl'], $d->tools($env));
+        $this->assertFalse($d->usesArtifact($env));
+        $this->assertFalse($d->supportsRollback($env), 'the deploy hook cannot roll back');
+        $this->assertStringContainsString('commit_hash=${SLIPWAY_SHA}', $d->deployCommands($env));
+    }
+
+    public function test_laravel_cloud_options_are_validated(): void
+    {
+        $d = new LaravelCloudDeployer();
+
+        $this->assertInvalid('UPPER_SNAKE_CASE', $d, $this->env('cloud', ['secret' => 'https://cloud.laravel.com/hook']));
+        $this->assertInvalid('[commit]', $d, $this->env('cloud', ['commit' => 'yes']));
+        $this->assertInvalid('unknown option [hook]', $d, $this->env('cloud', ['hook' => 'x']));
+        $this->assertSame(['CLOUD_HOOK'], $d->requiredSecrets($this->env('cloud', ['secret' => 'CLOUD_HOOK'])));
+    }
+
+    public function test_laravel_cloud_can_deploy_the_latest_commit_instead(): void
+    {
+        $script = (new LaravelCloudDeployer())->deployCommands($this->env('cloud', ['commit' => false]));
+
+        $this->assertStringNotContainsString('commit_hash', $script);
+        $this->assertStringContainsString('"$LARAVEL_CLOUD_DEPLOY_HOOK"', $script);
+    }
+
+    public function test_laravel_cloud_requests_are_built_correctly_when_executed(): void
+    {
+        if (ShellHarness::shell() === null) {
+            $this->markTestSkipped('No POSIX shell available.');
+        }
+
+        $script = (new LaravelCloudDeployer())->deployCommands($this->env('cloud'));
+        $curl = "#!/bin/sh\nfor a; do last=\"\$a\"; done\necho \"\$last\" >> \"\$MOCK_LOG\"\n";
+
+        foreach (['https://cloud.laravel.com/hook/abc' => 'https://cloud.laravel.com/hook/abc?commit_hash=abc123', 'https://cloud.laravel.com/hook/abc?token=x' => 'https://cloud.laravel.com/hook/abc?token=x&commit_hash=abc123'] as $hook => $expected) {
+            $h = new ShellHarness();
+            $h->tool('curl', $curl);
+
+            try {
+                $result = $h->run("set -eu\n" . $script . "\n", ['LARAVEL_CLOUD_DEPLOY_HOOK' => $hook, 'SLIPWAY_SHA' => 'abc123']);
+
+                $this->assertSame(0, $result['code'], $result['out']);
+                $this->assertStringContainsString($expected, $h->calls());
+            } finally {
+                $h->cleanup();
+            }
+        }
+    }
+
     public function test_vapor_deploys_with_the_cli_and_can_roll_back(): void
     {
         $d = new VaporDeployer();
@@ -211,7 +267,7 @@ final class DeployersTest extends TestCase
         }
 
         $envs = [
-            new SshDeployer(), new ForgeDeployer(), new EnvoyerDeployer(), new VaporDeployer(), new WebhookDeployer(), new CommandDeployer(),
+            new SshDeployer(), new ForgeDeployer(), new LaravelCloudDeployer(), new EnvoyerDeployer(), new VaporDeployer(), new WebhookDeployer(), new CommandDeployer(),
         ];
         $options = [
             SshDeployer::class => $this->ssh(),

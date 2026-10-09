@@ -12,11 +12,14 @@ use Usamamuneerchaudhary\Slipway\Model\StepType;
 use Usamamuneerchaudhary\Slipway\Steps\BuildArtifact;
 use Usamamuneerchaudhary\Slipway\Steps\BuildAssets;
 use Usamamuneerchaudhary\Slipway\Steps\ComposerAudit;
+use Usamamuneerchaudhary\Slipway\Steps\ComposerValidate;
 use Usamamuneerchaudhary\Slipway\Steps\Larastan;
 use Usamamuneerchaudhary\Slipway\Steps\NpmAudit;
+use Usamamuneerchaudhary\Slipway\Steps\NpmTest;
 use Usamamuneerchaudhary\Slipway\Steps\Pest;
 use Usamamuneerchaudhary\Slipway\Steps\PhpUnit;
 use Usamamuneerchaudhary\Slipway\Steps\Pint;
+use Usamamuneerchaudhary\Slipway\Steps\Rector;
 use Usamamuneerchaudhary\Slipway\Steps\SecretScan;
 use Usamamuneerchaudhary\Slipway\Tests\Support\Fixture;
 use Usamamuneerchaudhary\Slipway\Tests\Support\ShellHarness;
@@ -133,6 +136,45 @@ final class StepsTest extends TestCase
     {
         $this->assertStringContainsString('--audit-level=critical', $this->commands((new NpmAudit())->contribute(['level' => 'critical'])));
         $this->assertRejects('level', static fn () => (new NpmAudit())->contribute(['level' => 'severe']));
+    }
+
+    public function test_composer_validate_is_strict_unless_told_otherwise(): void
+    {
+        $this->assertSame('composer validate --no-interaction --strict', $this->commands((new ComposerValidate())->contribute([])));
+        $this->assertSame('composer validate --no-interaction', $this->commands((new ComposerValidate())->contribute(['strict' => false])));
+        $this->assertRejects('unknown option [x]', static fn () => (new ComposerValidate())->contribute(['x' => 1]));
+        $this->assertRejects('must be of type bool', static fn () => (new ComposerValidate())->contribute(['strict' => 'yes']));
+    }
+
+    public function test_npm_test_runs_the_test_script_by_default_and_requires_node(): void
+    {
+        $c = (new NpmTest())->contribute([]);
+
+        $this->assertTrue($c->requiresNode);
+        $this->assertStringContainsString('npm ci --no-audit --no-fund', $this->commands($c));
+        $this->assertStringContainsString("\nnpm test", "\n" . $this->commands($c));
+        $this->assertStringContainsString('npm run test:unit', $this->commands((new NpmTest())->contribute(['script' => 'test:unit'])));
+    }
+
+    public function test_npm_test_script_must_be_a_plain_script_name(): void
+    {
+        $this->assertRejects('script', static fn () => (new NpmTest())->contribute(['script' => 'test && curl evil']));
+        $this->assertRejects('script', static fn () => (new NpmTest())->contribute(['script' => '--help']));
+    }
+
+    public function test_rector_only_ever_dry_runs(): void
+    {
+        $cmd = $this->commands((new Rector())->contribute([]));
+
+        $this->assertStringContainsString('vendor/bin/rector process --dry-run', $cmd);
+        $this->assertStringContainsString('--config=ci/rector.php', $this->commands((new Rector())->contribute(['config' => 'ci/rector.php'])));
+    }
+
+    public function test_rector_config_must_be_a_relative_path_inside_the_project(): void
+    {
+        $this->assertRejects('config', static fn () => (new Rector())->contribute(['config' => '/etc/rector.php']));
+        $this->assertRejects('config', static fn () => (new Rector())->contribute(['config' => '../rector.php']));
+        $this->assertRejects('config', static fn () => (new Rector())->contribute(['config' => 'rector.php; id']));
     }
 
     public function test_build_assets_script_name_must_be_a_single_word(): void
