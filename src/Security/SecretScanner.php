@@ -15,7 +15,7 @@ namespace Usamamuneerchaudhary\Slipway\Security;
  */
 final class SecretScanner
 {
-    private const PATTERNS = [
+    private const array PATTERNS = [
         'AWS access key ID' => '/\b(?:AKIA|ASIA)[0-9A-Z]{16}\b/',
         'GitHub token' => '/\bgh[pousr]_[A-Za-z0-9]{36,}\b/',
         'GitHub fine-grained token' => '/\bgithub_pat_[A-Za-z0-9_]{50,}\b/',
@@ -29,13 +29,13 @@ final class SecretScanner
         'npm token' => '/\bnpm_[A-Za-z0-9]{36}\b/',
     ];
 
-    private const SENSITIVE_NAME = '/(?:PASSWORD|PASSWD|SECRET|TOKEN|PRIVATE_KEY|API_KEY|ACCESS_KEY|CREDENTIALS?)$/i';
+    private const string SENSITIVE_NAME = '/(?:PASSWORD|PASSWD|SECRET|TOKEN|PRIVATE_KEY|API_KEY|ACCESS_KEY|CREDENTIALS?)$/i';
 
-    private const COMMITTED_FILES = ['.env', '.env.production', '.env.staging', '.env.local', 'id_rsa', 'id_ed25519', 'id_ecdsa'];
+    private const array COMMITTED_FILES = ['.env', '.env.production', '.env.staging', '.env.local', 'id_rsa', 'id_ed25519', 'id_ecdsa'];
 
-    private const SKIP_DIRS = ['.git', 'vendor', 'node_modules', 'storage', 'bootstrap/cache', 'public/build', 'public/hot'];
+    private const array SKIP_DIRS = ['.git', 'vendor', 'node_modules', 'storage', 'bootstrap/cache', 'public/build', 'public/hot'];
 
-    private const MAX_FILE_BYTES = 1_048_576;
+    private const int MAX_FILE_BYTES = 1_048_576;
 
     /** @param list<string> $ignorePrefixes Relative path prefixes excluded from file scans. */
     public function __construct(private readonly array $ignorePrefixes = [])

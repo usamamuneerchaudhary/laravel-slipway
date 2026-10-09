@@ -19,8 +19,8 @@ use Usamamuneerchaudhary\Slipway\Model\Environment;
  */
 final class CommandDeployer extends AbstractDeployer
 {
-    private const KNOWN = ['commands', 'rollback_commands', 'secrets', 'tools', 'php', 'artifact'];
-    private const TOOLS = ['curl', 'ssh', 'rsync', 'git'];
+    private const array KNOWN = ['commands', 'rollback_commands', 'secrets', 'tools', 'php', 'artifact'];
+    private const array TOOLS = ['curl', 'ssh', 'rsync', 'git'];
 
     public function validate(Environment $environment): array
     {
