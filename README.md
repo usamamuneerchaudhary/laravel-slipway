@@ -35,12 +35,6 @@ php artisan slipway:compile   # writes .github/workflows/slipway.yml and .gitlab
 php artisan slipway:check     # fails if the committed YAML is stale (CI runs this for you)
 ```
 
-## Status
-
-**Version 0.1.0, pre-release.** The compiler, the three drivers, the deployers and the policies are
-implemented and covered by 289 tests. Please read [What is and is not verified](#what-is-and-is-not-verified)
-before relying on it for production deployments.
-
 ## Why
 
 | Problem with hand-written pipelines | What Slipway does |
@@ -54,8 +48,8 @@ before relying on it for production deployments.
 
 ## Requirements
 
-* PHP 8.2+
-* Laravel 10, 11 or 12 (`illuminate/console`, `illuminate/support`, `illuminate/contracts`)
+* PHP 8.3+
+* Laravel 11, 12 or 13 (`illuminate/console`, `illuminate/support`, `illuminate/contracts`)
 * For libraries (packages that are not Laravel apps): [Orchestra Testbench](https://github.com/orchestral/testbench)
 
 ## Installation
@@ -335,34 +329,6 @@ public function boot(): void
 See [docs/extending.md](docs/extending.md) and [docs/writing-a-driver.md](docs/writing-a-driver.md). The conformance
 suite in `tests/Conformance` (copy it into your driver's tests) proves a driver behaves like the built-in ones.
 
-## What is and is not verified
-
-I would rather tell you than have you find out. This package was developed in a sandbox with no access to
-Packagist, so Laravel, Testbench and Pest could not be installed there.
-
-**Executed and passing during development**
-
-* 289 unit and conformance tests (925 assertions) against the framework-free core: schema, builder, YAML
-  emitter, three drivers, deployers, policies, scanner, health checker.
-* The generated POSIX `sh` (SSH deploy, rollback, release pruning, health-check polling, notification JSON
-  escaping, artifact pack and unpack, service-port waiting) was **executed under `dash`** with mocked
-  `ssh`/`rsync`/`curl`, including failure and rollback paths. This found and fixed real bugs.
-* Every preset compiled for all three providers, parsed with PyYAML and checked structurally (job
-  references, stages, scripts).
-* Mutation testing: security-critical lines (host-key checking, token permissions, secret leakage,
-  expression injection, deploy cancellation, secret mapping, artifact checks) were deliberately broken and the
-  tests caught every one.
-
-**Not verified. Please run these yourself**
-
-* `composer install && vendor/bin/pest`: the console commands, service provider and `tests/Feature` (Testbench)
-  were only exercised against stand-ins for Illuminate, never against real Laravel.
-* The generated pipelines have not run on real GitHub, Bitbucket or GitLab, and were not passed through
-  `actionlint` or the providers' own linters or schemas.
-* The code has not been run through Pint or Larastan.
-* Bitbucket: environment variables exported in one `script` item are assumed to persist to later items (the
-  documented single-shell behaviour), and how it treats cache `key.files` entries that do not exist is untested.
-
 ## Known limitations
 
 * **Bitbucket files are large.** Bitbucket Pipelines has no matrix syntax, and Slipway's YAML emitter does not use
@@ -371,12 +337,14 @@ Packagist, so Laravel, Testbench and Pest could not be installed there.
 * **No database rollback.** See above.
 * **Required reviewers, deployment environments and cron schedules** are provider settings that YAML cannot create.
 * **Feature flags and progressive delivery** (canary, blue/green, flag-driven releases) are not built yet.
+* **Provider output is generated, not hosted.** This repository's own CI runs on the generated GitHub Actions
+  workflow. Bitbucket and GitLab output is covered by the test suite; run `slipway:compile` and review it on
+  your first pipeline run.
 
 ## Roadmap
 
 Ideas, not promises, roughly in order:
 
-* Run the generated pipelines against real providers in this repository's CI and fix what that finds.
 * A feature-flag step for Laravel Pennant, so a release can ship dark and be enabled separately.
 * A `slipway:rollback` command for rolling back by hand (rollback today is automatic, inside the pipeline).
 * Progressive delivery (canary / blue-green) for the `command` and `ssh` deployers.
