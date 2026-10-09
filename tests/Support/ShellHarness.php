@@ -56,6 +56,15 @@ SH);
 #!/bin/sh
 echo "php $*" >> "$MOCK_LOG"
 SH);
+        // Real servers run GNU coreutils (`mv -T`). BSD/macOS mv has no -T; its `-h` flag is the equivalent.
+        $this->tool('mv', <<<'SH'
+#!/bin/sh
+if [ "$1" = "-Tf" ] && [ "$(uname -s)" = "Darwin" ]; then
+  shift
+  exec /bin/mv -fh "$@"
+fi
+exec /bin/mv "$@"
+SH);
     }
 
     public static function shell(): ?string

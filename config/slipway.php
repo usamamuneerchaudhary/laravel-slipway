@@ -44,7 +44,6 @@ return [
     'lockfile' => true,
 
     // PHP versions. Stages marked `matrix => true` run on all of them; other stages use the newest.
-    // Add more as needed.
     'php' => ['8.3', '8.4'],
 
     // Node version for steps that build front-end assets. null = the project has no Node build.

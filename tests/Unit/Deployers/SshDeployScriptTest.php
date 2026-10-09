@@ -67,7 +67,11 @@ final class SshDeployScriptTest extends TestCase
 
     private function current(): ?string
     {
-        $link = @readlink($this->base . '/current');
+        if (! is_link($this->base . '/current')) {
+            return null;
+        }
+
+        $link = readlink($this->base . '/current');
 
         return $link === false ? null : basename($link);
     }
