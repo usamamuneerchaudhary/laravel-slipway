@@ -10,7 +10,8 @@ use Usamamuneerchaudhary\Slipway\Model\Support;
 /**
  * PUBLIC API. A driver renders the neutral Pipeline model as one provider's YAML.
  *
- * Third-party drivers register through the DriverManager (see docs/writing-a-driver.md)
+ * Third-party drivers register through the DriverManager
+ * (see https://laravel-slipway.mintlify.site/writing-a-driver)
  * and should pass the shared conformance suite in tests/Conformance.
  */
 interface Driver

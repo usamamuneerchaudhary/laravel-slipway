@@ -5,6 +5,10 @@ and the project follows [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Changed
+
+- Documentation moved to [https://laravel-slipway.mintlify.site/](https://laravel-slipway.mintlify.site/).
+
 ## [1.2] - 2026-10-09
 
 ### Added

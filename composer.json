@@ -16,6 +16,12 @@
     "license": "MIT",
     "type": "library",
     "homepage": "https://github.com/usamamuneerchaudhary/laravel-slipway",
+    "support": {
+        "docs": "https://laravel-slipway.mintlify.site/",
+        "issues": "https://github.com/usamamuneerchaudhary/laravel-slipway/issues",
+        "source": "https://github.com/usamamuneerchaudhary/laravel-slipway",
+        "security": "https://github.com/usamamuneerchaudhary/laravel-slipway/security/advisories/new"
+    },
     "authors": [
         {
             "name": "Usama Muneer Chaudhary",

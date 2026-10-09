@@ -41,8 +41,10 @@ and commit both files. CI fails when they disagree.
 2. Add tests. A bug fix needs a test that fails without the fix. Generated scripts should be *executed* in a test
    (see `tests/Support/ShellHarness.php`) rather than only compared as strings.
 3. A new provider driver must pass the conformance suite in `tests/Conformance` and be documented in
-   `docs/writing-a-driver.md` terms: capabilities with honest notes, deterministic output, no inlined secrets.
-4. Update `CHANGELOG.md` under "Unreleased" and the README when behaviour or configuration changes.
+   [writing a driver](https://laravel-slipway.mintlify.site/writing-a-driver) terms: capabilities with honest notes,
+   deterministic output, no inlined secrets.
+4. Update `CHANGELOG.md` under "Unreleased" and the [docs](https://laravel-slipway.mintlify.site/) (and the README
+   when the pitch or install path changes).
 5. Keep commits focused. Describe the *why* in the message.
 
 ## Reporting security problems
