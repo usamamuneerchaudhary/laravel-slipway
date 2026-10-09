@@ -5,7 +5,43 @@ and the project follows [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
-## [1.0.0] - 2026-10-09
+## [1.2] - 2026-10-09
+
+### Added
+
+- `cloud` deployer: triggers a Laravel Cloud deploy hook for the commit that passed CI (`secret`, `commit`).
+- Steps `composer-validate`, `npm-test` and `rector` (dry run only).
+- `slipway:pin`: resolves the GitHub Actions a workflow uses to commit SHAs, ready to paste into the `pins` option.
+- In `strict` mode, compiling warns about GitHub Actions that are not pinned to a commit.
+- README recipes for Ploi, Coolify, Dokploy (`webhook`), Kamal and Deployer (`command`).
+- Laravel Pint is now part of the package's own quality checks.
+
+### Changed
+
+- Node.js on Bitbucket and GitLab is installed from the official nodejs.org tarball and verified against the
+  published `SHASUMS256.txt`, replacing the NodeSource setup script.
+
+## [1.1] - 2026-10-09
+
+Hardening release. Run `slipway:compile` once after upgrading: the generated header and config hash no longer
+contain the Slipway version, so upgrading Slipway will not make committed pipelines stale again.
+
+### Changed
+
+- SSH deploys run in batch mode with connection timeouts and keep-alives, remove the deploy key from the runner
+  when the script ends, and treat pruning old releases as best effort.
+- The Composer installer is verified against its published checksum before it runs on container providers.
+  Downloaded setup scripts are executed only after a successful download.
+- Drift detection ignores Windows line endings.
+- The secret scanner reads the files git tracks, so a local gitignored `.env` is no longer reported.
+- Credential findings in generated output are reported together with configuration errors.
+
+### Fixed
+
+- Anchored validation patterns accepted a trailing newline; hosts, users and similar values with one are rejected.
+- PHP 8.5 deprecation of `curl_close()` in the health checker.
+
+## [1.0] - 2026-10-09
 
 First stable release. Requires PHP 8.3+ and Laravel 11, 12 or 13.
 

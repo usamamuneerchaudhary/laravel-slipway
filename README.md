@@ -171,8 +171,11 @@ Stage options: `steps`, `matrix`, `parallel` (one job per step), `php` (a versio
 |---|---|---|
 | `pint` | `vendor/bin/pint --test` | none |
 | `larastan` / `phpstan` | PHPStan analysis | `level`, `memory_limit` |
+| `composer-validate` | `composer validate --no-interaction --strict` | `strict` (default `true`) |
 | `composer-audit` | `composer audit` (adds `--locked` when `lockfile` is true) | none |
 | `npm-audit` | `npm audit` | `level` |
+| `npm-test` | `npm ci && npm test` (or `npm run <script>`); needs `node` | `script` |
+| `rector` | `vendor/bin/rector process --dry-run`: reports changes, never rewrites files | `config` |
 | `secret-scan` | `slipway:scan`: scans the files git tracks (plus untracked, non-ignored files), so a local gitignored `.env` is never reported | none |
 | `pest` / `phpunit` | Run the tests; prepares `.env` and the app key | `parallel`, `coverage` (`true` or a minimum %), `services`, `testsuite`, `prepare_env` |
 | `build-assets` | `npm ci && npm run build` | `script` |
@@ -207,11 +210,53 @@ previous release is restored and the job still fails, so a broken deploy is neve
 | `ssh` | Zero-downtime release over SSH: rsync a new `releases/<timestamp>`, share `.env` and `storage`, atomically switch the `current` symlink, prune old releases. Host keys are verified (`StrictHostKeyChecking=yes`). | `host`, `user`, `path`, `port`, `keep_releases`, `migrate`, `optimize`, `storage_link`, `post_deploy`, `key_secret`, `known_hosts_secret` |
 | `vapor` | `vendor/bin/vapor deploy` | `secret`, `environment` |
 | `forge` | Calls the Forge deployment trigger URL | `secret` |
+| `cloud` | Calls the [Laravel Cloud](#laravel-cloud) deploy hook for the commit that passed CI | `secret`, `commit` |
 | `envoyer` | Calls the Envoyer deployment hook | `secret` |
 | `webhook` | `POST` to your own endpoint | `secret`, `rollback_secret` |
 | `command` | Your own shell commands | `commands`, `rollback_commands`, `secrets`, `tools`, `php`, `artifact` |
 
 A server needs a one-time setup. See [docs/ssh-server-setup.md](docs/ssh-server-setup.md).
+
+#### Laravel Cloud
+
+```php
+'environments' => [
+    'production' => ['branch' => 'main', 'via' => 'cloud', 'verify' => ['url' => 'https://example.com']],
+],
+'secrets' => ['LARAVEL_CLOUD_DEPLOY_HOOK'],
+```
+
+Create a deploy hook in the Cloud environment's settings and store its URL as the `LARAVEL_CLOUD_DEPLOY_HOOK`
+secret (or name another with `secret`). Slipway `POST`s to it with `commit_hash` set to the commit that passed CI;
+set `'commit' => false` to deploy the branch head instead.
+
+* Laravel Cloud builds from your repository itself, so there is no artifact to upload.
+* **Turn off "deploy on push" for the environment**, otherwise Cloud deploys before your tests have finished.
+* The hook cannot roll back, so `rollback => true` is rejected for this deployer. `verify` still works and
+  fails the job if the site does not come up.
+
+#### Recipes for other platforms
+
+No dedicated deployer is needed for platforms that deploy from a URL or a command:
+
+```php
+// Ploi, Coolify, Dokploy: POST to the deploy webhook (stored as a secret)
+'production' => ['via' => 'webhook', 'options' => ['secret' => 'PLOI_DEPLOY_WEBHOOK']],
+
+// Kamal
+'production' => ['via' => 'command', 'options' => [
+    'commands' => ['gem install kamal', 'kamal deploy'],
+    'secrets' => ['KAMAL_REGISTRY_PASSWORD'],
+    'artifact' => false,
+]],
+
+// Deployer (deployer.org)
+'production' => ['via' => 'command', 'options' => [
+    'commands' => ['vendor/bin/dep deploy production'],
+    'secrets' => ['DEPLOY_SSH_KEY'],
+    'artifact' => false,
+]],
+```
 
 Rollback re-points the release; it **does not undo database migrations**. Keep migrations backwards
 compatible (expand, then contract).
@@ -300,22 +345,25 @@ schedule on Bitbucket and GitLab). Slipway prints exactly which one when it comp
 | `slipway:drivers` | The provider capability matrix. |
 | `slipway:scan [--path=]` | Scan the repository for committed credentials. |
 | `slipway:verify {environment} [--url=] [--config=]` | Run an environment's health check from your machine. |
+| `slipway:pin [--config=]` | Resolve the GitHub Actions the workflow uses to commit SHAs, ready to paste into `pins`. |
 
 ## Security model
 
 * **Secrets by name only.** The config holds names; the provider holds values. The scanner checks the
   config and the generated YAML, and a finding never contains the matched value.
 * **Least privilege on GitHub.** `permissions: contents: read` by default, `persist-credentials: false` on
-  checkout. Actions default to major-version tags (`actions/checkout@v4`), which are mutable: pin them to commit
-  SHAs with the `pins` driver option for supply-chain safety.
+  checkout. Actions default to major-version tags (`actions/checkout@v4`), which are mutable. Run
+  `slipway:pin` to resolve them to commit SHAs, paste the result into the `pins` driver option, and `strict` mode
+  warns while any action is still unpinned.
 * **No expression injection.** `${{ … }}` is rejected inside `run` scripts. Secrets reach scripts only as
   step `env`, never interpolated into the command line.
 * **Host keys are verified** for SSH deploys; there is no "accept any host" mode. SSH runs in batch mode with
   connection timeouts, and the deploy key is removed from the runner when the script ends.
 * **Verified tooling on container providers.** On Bitbucket and GitLab the Composer installer is checked against
-  its published checksum before it runs. The Node.js setup script is downloaded and then executed (so a failed
-  download fails the job), but NodeSource publishes no checksum for it: use your own image through the `image`
-  driver option if you need a fully pinned toolchain.
+  its published checksum before it runs. Node.js is installed from the official tarball on nodejs.org after it is
+  checked against the published `SHASUMS256.txt`. That protects against corrupt or tampered downloads; it is an
+  integrity check, not a signature check. Use your own image through the `image` driver option if you need a
+  fully pinned toolchain.
 * **Validated inputs.** Hosts, users, paths and URL paths are validated before they reach a shell script.
 * **Deterministic output** makes review and drift detection reliable.
 
@@ -367,6 +415,7 @@ vendor/bin/pest                       # everything
 vendor/bin/pest --testsuite=Unit
 vendor/bin/pest --testsuite=Conformance
 vendor/bin/pest --testsuite=Feature   # Testbench: real artisan commands
+vendor/bin/pint --test                # code style
 ```
 
 ## Contributing
