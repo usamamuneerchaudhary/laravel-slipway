@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace Usamamuneerchaudhary\Slipway\Tests\Unit\Drivers;
 
-use InvalidArgumentException;
 use PHPUnit\Framework\TestCase;
 use Usamamuneerchaudhary\Slipway\Config\ConfigException;
 use Usamamuneerchaudhary\Slipway\Tests\Support\Fixture;

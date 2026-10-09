@@ -8,6 +8,7 @@ use Illuminate\Support\Facades\Artisan;
 use Orchestra\Testbench\TestCase;
 use Usamamuneerchaudhary\Slipway\DriverManager;
 use Usamamuneerchaudhary\Slipway\SlipwayServiceProvider;
+use Usamamuneerchaudhary\Slipway\Support\ActionPins;
 use Usamamuneerchaudhary\Slipway\Tests\Support\Fixture;
 
 /**
@@ -67,7 +68,7 @@ final class CommandsTest extends TestCase
     {
         $registered = array_keys(Artisan::all());
 
-        foreach (['init', 'compile', 'check', 'validate', 'explain', 'drivers', 'scan', 'verify'] as $name) {
+        foreach (['init', 'compile', 'check', 'validate', 'explain', 'drivers', 'scan', 'verify', 'pin'] as $name) {
             $this->assertContains("slipway:{$name}", $registered);
         }
 
@@ -150,6 +151,41 @@ final class CommandsTest extends TestCase
 
         file_put_contents($dir . '/notes.txt', 'token ' . 'ghp_' . str_repeat('aB3dE6', 7) . "\n");
         $this->artisan('slipway:scan', ['--path' => $dir])->assertExitCode(1);
+    }
+
+    public function test_pin_prints_the_commit_shas_for_every_unpinned_action(): void
+    {
+        $sha = str_repeat('a1', 20);
+        $this->app->instance(ActionPins::class, new ActionPins(static fn (string $action, string $ref): ?string => $sha));
+        config(['slipway' => Fixture::minimal()]);
+
+        $this->artisan('slipway:pin')
+            ->expectsOutputToContain("'actions/checkout' => '{$sha}', // v4")
+            ->assertExitCode(0);
+    }
+
+    public function test_pin_reports_actions_that_cannot_be_resolved(): void
+    {
+        $this->app->instance(ActionPins::class, new ActionPins(static fn (string $action, string $ref): ?string => null));
+        config(['slipway' => Fixture::minimal()]);
+
+        $this->artisan('slipway:pin')->expectsOutputToContain('Could not resolve')->assertExitCode(1);
+    }
+
+    public function test_pin_needs_the_github_driver(): void
+    {
+        config(['slipway' => Fixture::minimal(['drivers' => ['github' => false, 'gitlab' => true]])]);
+
+        $this->artisan('slipway:pin')->expectsOutputToContain('GitHub driver is not enabled')->assertExitCode(1);
+    }
+
+    public function test_pin_has_nothing_to_do_when_every_action_is_already_pinned(): void
+    {
+        $sha = str_repeat('b2', 20);
+        $pins = ['actions/checkout' => $sha, 'actions/cache' => $sha, 'shivammathur/setup-php' => $sha, 'actions/setup-node' => $sha, 'actions/upload-artifact' => $sha, 'actions/download-artifact' => $sha];
+        config(['slipway' => Fixture::minimal(['drivers' => ['github' => ['options' => ['pins' => $pins]]]])]);
+
+        $this->artisan('slipway:pin')->expectsOutputToContain('already pinned')->assertExitCode(0);
     }
 
     public function test_verify_reports_unknown_environments(): void

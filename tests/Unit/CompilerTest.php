@@ -75,6 +75,25 @@ final class CompilerTest extends TestCase
         }
     }
 
+    public function test_strict_mode_warns_about_actions_that_are_not_pinned_to_a_commit(): void
+    {
+        $warnings = implode("\n", Fixture::compile(Fixture::minimal(['strict' => true]))->warnings);
+
+        $this->assertStringContainsString('actions/checkout', $warnings);
+        $this->assertStringContainsString('slipway:pin', $warnings);
+    }
+
+    public function test_the_pin_warning_is_for_strict_mode_only_and_disappears_once_pinned(): void
+    {
+        $this->assertStringNotContainsString('slipway:pin', implode("\n", Fixture::compile(Fixture::minimal())->warnings));
+
+        $sha = str_repeat('c3', 20);
+        $pins = ['actions/checkout' => $sha, 'actions/cache' => $sha, 'shivammathur/setup-php' => $sha, 'actions/setup-node' => $sha, 'actions/upload-artifact' => $sha, 'actions/download-artifact' => $sha];
+        $pinned = Fixture::compile(Fixture::minimal(['strict' => true, 'drivers' => ['github' => ['options' => ['pins' => $pins]]]]));
+
+        $this->assertStringNotContainsString('slipway:pin', implode("\n", $pinned->warnings));
+    }
+
     public function test_drift_ignores_windows_line_endings(): void
     {
         $compiler = Fixture::compiler();
