@@ -153,6 +153,71 @@ final class CommandsTest extends TestCase
         $this->artisan('slipway:scan', ['--path' => $dir])->assertExitCode(1);
     }
 
+    public function test_scan_groups_findings_by_file_and_summarises_the_run(): void
+    {
+        $dir = Fixture::tempDir();
+        $this->cleanup[] = $dir;
+        $token = 'ghp_' . str_repeat('aB3dE6', 7);
+
+        file_put_contents($dir . '/a.txt', "ok\ntoken {$token}\n");
+        file_put_contents($dir . '/.env', "APP_KEY=base64:abc\n");
+
+        $exitCode = Artisan::call('slipway:scan', ['--path' => $dir]);
+        $output = Artisan::output();
+
+        $this->assertSame(1, $exitCode);
+
+        foreach (['FAIL', 'a.txt', 'line 2', 'GitHub token', 'Committed credentials file', '2 potential credentials in 2 files', '2 files scanned', 'How to fix'] as $expected) {
+            $this->assertStringContainsString($expected, $output);
+        }
+
+        $this->assertStringNotContainsString($token, $output);
+    }
+
+    public function test_scan_reports_a_clean_run_with_the_number_of_files_scanned(): void
+    {
+        $dir = Fixture::tempDir();
+        $this->cleanup[] = $dir;
+        file_put_contents($dir . '/readme.txt', "hello\n");
+
+        $exitCode = Artisan::call('slipway:scan', ['--path' => $dir]);
+        $output = Artisan::output();
+
+        $this->assertSame(0, $exitCode);
+        $this->assertStringContainsString('PASS', $output);
+        $this->assertStringContainsString('No credentials found', $output);
+        $this->assertStringContainsString('1 file scanned', $output);
+    }
+
+    public function test_scan_changed_requires_git_and_base_requires_changed(): void
+    {
+        $dir = Fixture::tempDir();
+        $this->cleanup[] = $dir;
+
+        $this->artisan('slipway:scan', ['--path' => $dir, '--changed' => true])
+            ->expectsOutputToContain('git repository')
+            ->assertExitCode(1);
+
+        $this->artisan('slipway:scan', ['--path' => $dir, '--base' => 'main'])
+            ->expectsOutputToContain('--changed')
+            ->assertExitCode(1);
+    }
+
+    public function test_scan_changed_only_looks_at_changed_files(): void
+    {
+        $dir = Fixture::tempDir();
+        $this->cleanup[] = $dir;
+        exec('git -C ' . escapeshellarg($dir) . ' init -q 2>&1', $output, $code);
+
+        if ($code !== 0) {
+            $this->markTestSkipped('git is not available.');
+        }
+
+        file_put_contents($dir . '/notes.txt', 'token ' . 'ghp_' . str_repeat('aB3dE6', 7) . "\n");
+
+        $this->artisan('slipway:scan', ['--path' => $dir, '--changed' => true])->assertExitCode(1);
+    }
+
     public function test_pin_prints_the_commit_shas_for_every_unpinned_action(): void
     {
         $sha = str_repeat('a1', 20);

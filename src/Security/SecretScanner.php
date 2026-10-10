@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Usamamuneerchaudhary\Slipway\Security;
 
+use RuntimeException;
+
 /**
  * Lightweight credential detection.
  *
@@ -37,16 +39,33 @@ final class SecretScanner
 
     private const array SKIP_ANYWHERE = ['.git', 'node_modules'];
 
+    private const array BINARY_EXTENSIONS = [
+        'png', 'jpg', 'jpeg', 'gif', 'webp', 'ico', 'bmp', 'avif', 'woff', 'woff2', 'ttf', 'otf', 'eot',
+        'pdf', 'zip', 'gz', 'tgz', 'tar', 'mp3', 'mp4', 'mov', 'webm', 'psd', 'sketch', 'fig',
+    ];
+
     private const int MAX_FILE_BYTES = 1_048_576;
+
+    private int $filesScanned = 0;
 
     /** @param list<string> $ignorePrefixes Relative path prefixes excluded from file scans. */
     public function __construct(private readonly array $ignorePrefixes = [])
     {
     }
 
+    /** How many files the last directory or changed-files scan actually read. */
+    public function filesScanned(): int
+    {
+        return $this->filesScanned;
+    }
+
     /** @return list<Finding> */
     public function scanString(string $text, string $location): array
     {
+        if (! $this->containsAnyPattern($text)) {
+            return [];
+        }
+
         $findings = [];
         $lineNo = 0;
 
@@ -65,6 +84,21 @@ final class SecretScanner
         }
 
         return $findings;
+    }
+
+    /**
+     * Fast path: nearly every file is clean, so test the whole text once per pattern before paying
+     * for a line-by-line pass. No pattern can span a line break, so a miss here is a miss everywhere.
+     */
+    private function containsAnyPattern(string $text): bool
+    {
+        foreach (self::PATTERNS as $regex) {
+            if (preg_match($regex, $text) === 1) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /**
@@ -132,6 +166,7 @@ final class SecretScanner
      */
     public function scanDirectory(string $root): array
     {
+        $this->filesScanned = 0;
         $root = rtrim($root, '/\\');
 
         $files = $this->repositoryFiles($root);
@@ -157,6 +192,48 @@ final class SecretScanner
     }
 
     /**
+     * Scan only the files that changed: modified, staged and untracked (not gitignored) files, or,
+     * with $base, everything that differs from that ref. Deleted files are ignored. Meant for
+     * pre-commit hooks and pull request checks, where a full scan of a large repository is wasteful.
+     *
+     * @return list<Finding>
+     * @throws RuntimeException When $root is not a git work tree, git is unavailable, or $base is not a valid ref.
+     */
+    public function scanChanged(string $root, ?string $base = null): array
+    {
+        $this->filesScanned = 0;
+        $root = rtrim($root, '/\\');
+
+        if ($base !== null && preg_match('/^[A-Za-z0-9_][A-Za-z0-9_.\/@^~{}-]*$/', $base) !== 1) {
+            throw new RuntimeException("[{$base}] is not a valid git ref.");
+        }
+
+        if (! file_exists($root . '/.git')) {
+            throw new RuntimeException('--changed needs a git repository.');
+        }
+
+        $reference = $base ?? 'HEAD';
+        $tracked = $this->git($root, ['diff', '--name-only', '--relative', '--diff-filter=ACMR', '-z', $reference, '--']);
+
+        if ($tracked === null && $base !== null) {
+            throw new RuntimeException("Could not diff against [{$base}]. Is it a valid ref in this repository?");
+        }
+
+        if ($tracked === null) {
+            // No commits yet: every non-ignored file is "new".
+            return $this->scanFiles($root, $this->repositoryFiles($root) ?? []);
+        }
+
+        $untracked = $this->git($root, ['ls-files', '-z', '--others', '--exclude-standard']);
+
+        if ($untracked === null) {
+            throw new RuntimeException('Could not list untracked files. Is git available?');
+        }
+
+        return $this->scanFiles($root, array_values(array_unique([...$this->splitPaths($tracked), ...$this->splitPaths($untracked)])));
+    }
+
+    /**
      * Files git considers part of the project: tracked, plus untracked files that are not
      * gitignored. A developer's local, gitignored `.env` is therefore never reported as "committed".
      *
@@ -164,15 +241,26 @@ final class SecretScanner
      */
     private function repositoryFiles(string $root): ?array
     {
-        if (! file_exists($root . '/.git') || ! function_exists('proc_open')) {
+        if (! file_exists($root . '/.git')) {
             return null;
         }
 
-        $process = @proc_open(
-            ['git', '-C', $root, 'ls-files', '-z', '--cached', '--others', '--exclude-standard'],
-            [1 => ['pipe', 'w'], 2 => ['pipe', 'w']],
-            $pipes,
-        );
+        $output = $this->git($root, ['ls-files', '-z', '--cached', '--others', '--exclude-standard']);
+
+        return $output === null ? null : $this->splitPaths($output);
+    }
+
+    /**
+     * @param list<string> $arguments
+     * @return string|null Standard output, or null when git is unavailable or exits non-zero.
+     */
+    private function git(string $root, array $arguments): ?string
+    {
+        if (! function_exists('proc_open')) {
+            return null;
+        }
+
+        $process = @proc_open(['git', '-C', $root, ...$arguments], [1 => ['pipe', 'w'], 2 => ['pipe', 'w']], $pipes);
 
         if (! is_resource($process)) {
             return null;
@@ -183,11 +271,13 @@ final class SecretScanner
         fclose($pipes[1]);
         fclose($pipes[2]);
 
-        if (proc_close($process) !== 0) {
-            return null;
-        }
+        return proc_close($process) === 0 ? $output : null;
+    }
 
-        return array_values(array_filter(explode("\0", $output), static fn (string $path): bool => $path !== ''));
+    /** @return list<string> */
+    private function splitPaths(string $nulSeparated): array
+    {
+        return array_values(array_filter(explode("\0", $nulSeparated), static fn (string $path): bool => $path !== ''));
     }
 
     /**
@@ -224,6 +314,10 @@ final class SecretScanner
     /** @return list<Finding> */
     private function scanFile(string $full, string $rel): array
     {
+        if (in_array(strtolower(pathinfo($rel, PATHINFO_EXTENSION)), self::BINARY_EXTENSIONS, true)) {
+            return [];
+        }
+
         $size = @filesize($full);
         if ($size === false || $size === 0 || $size > self::MAX_FILE_BYTES) {
             return [];
@@ -233,6 +327,8 @@ final class SecretScanner
         if ($contents === false || str_contains(substr($contents, 0, 8000), "\0")) {
             return []; // unreadable or binary
         }
+
+        $this->filesScanned++;
 
         return $this->scanString($contents, $rel);
     }

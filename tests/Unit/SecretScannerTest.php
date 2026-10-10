@@ -200,6 +200,84 @@ final class SecretScannerTest extends TestCase
         $this->assertSame('notes.md:1', $findings[0]->location);
     }
 
+    private function commitEverything(): void
+    {
+        exec(
+            'git -C ' . escapeshellarg($this->dir) . ' add -A && git -C ' . escapeshellarg($this->dir)
+            . ' -c user.name=test -c user.email=test@example.com -c commit.gpgsign=false commit -q -m init 2>&1',
+            $output,
+            $code,
+        );
+
+        if ($code !== 0) {
+            $this->markTestSkipped('git cannot commit in this environment.');
+        }
+    }
+
+    public function test_changed_scan_only_reports_modified_staged_and_untracked_files(): void
+    {
+        $this->initGitRepository();
+        file_put_contents($this->dir . '/old.txt', 'token ' . $this->samples()['GitHub token'] . "\n");
+        file_put_contents($this->dir . '/edited.txt', "clean\n");
+        file_put_contents($this->dir . '/gone.txt', 'token ' . $this->samples()['AWS access key ID'] . "\n");
+        $this->commitEverything();
+
+        file_put_contents($this->dir . '/edited.txt', 'token ' . $this->samples()['Stripe live key'] . "\n");
+        file_put_contents($this->dir . '/new.txt', 'token ' . $this->samples()['npm token'] . "\n");
+        unlink($this->dir . '/gone.txt');
+
+        $locations = array_map(static fn ($f): string => $f->location, (new SecretScanner())->scanChanged($this->dir));
+        sort($locations);
+
+        $this->assertSame(['edited.txt:1', 'new.txt:1'], $locations);
+        $this->assertCount(3, (new SecretScanner())->scanDirectory($this->dir), 'a full scan still sees the committed leak');
+    }
+
+    public function test_changed_scan_can_compare_against_a_base_ref(): void
+    {
+        $this->initGitRepository();
+        file_put_contents($this->dir . '/old.txt', 'token ' . $this->samples()['GitHub token'] . "\n");
+        $this->commitEverything();
+        file_put_contents($this->dir . '/branch.txt', 'token ' . $this->samples()['npm token'] . "\n");
+        exec('git -C ' . escapeshellarg($this->dir) . ' add -A && git -C ' . escapeshellarg($this->dir) . ' -c user.name=t -c user.email=t@example.com -c commit.gpgsign=false commit -q -m branch 2>&1');
+
+        $this->assertSame([], (new SecretScanner())->scanChanged($this->dir));
+
+        $findings = (new SecretScanner())->scanChanged($this->dir, 'HEAD~1');
+
+        $this->assertCount(1, $findings);
+        $this->assertSame('branch.txt:1', $findings[0]->location);
+    }
+
+    public function test_changed_scan_works_before_the_first_commit(): void
+    {
+        $this->initGitRepository();
+        file_put_contents($this->dir . '/new.txt', 'token ' . $this->samples()['GitHub token'] . "\n");
+
+        $this->assertCount(1, (new SecretScanner())->scanChanged($this->dir));
+    }
+
+    public function test_changed_scan_requires_a_git_repository_and_a_valid_ref(): void
+    {
+        try {
+            (new SecretScanner())->scanChanged($this->dir);
+            $this->fail('Expected an exception outside a git repository.');
+        } catch (\RuntimeException $exception) {
+            $this->assertStringContainsString('git repository', $exception->getMessage());
+        }
+
+        $this->initGitRepository();
+
+        foreach (['--output=/tmp/x', 'no-such-ref'] as $ref) {
+            try {
+                (new SecretScanner())->scanChanged($this->dir, $ref);
+                $this->fail("Expected an exception for [{$ref}].");
+            } catch (\RuntimeException $exception) {
+                $this->assertNotSame('', $exception->getMessage());
+            }
+        }
+    }
+
     public function test_binary_and_oversized_files_are_skipped(): void
     {
         file_put_contents($this->dir . '/image.bin', "\0\0" . $this->samples()['GitHub token']);
