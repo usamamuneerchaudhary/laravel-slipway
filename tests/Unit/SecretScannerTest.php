@@ -132,6 +132,23 @@ final class SecretScannerTest extends TestCase
         $this->assertSame([], (new SecretScanner())->scanDirectory($this->dir));
     }
 
+    public function test_nested_dependency_directories_are_skipped_but_published_vendor_directories_are_not(): void
+    {
+        foreach (['packages/a/vendor', 'packages/a/node_modules/pkg', 'packages/b/.git/objects'] as $d) {
+            mkdir($this->dir . '/' . $d, 0775, true);
+            file_put_contents($this->dir . '/' . $d . '/x.txt', $this->samples()['GitHub token']);
+        }
+        file_put_contents($this->dir . '/packages/a/vendor/autoload.php', '<?php');
+
+        mkdir($this->dir . '/resources/views/vendor', 0775, true);
+        file_put_contents($this->dir . '/resources/views/vendor/mail.txt', $this->samples()['GitHub token']);
+
+        $findings = (new SecretScanner())->scanDirectory($this->dir);
+
+        $this->assertCount(1, $findings);
+        $this->assertSame('resources/views/vendor/mail.txt:1', $findings[0]->location);
+    }
+
     public function test_ignored_paths_are_skipped(): void
     {
         mkdir($this->dir . '/tests/fixtures', 0775, true);

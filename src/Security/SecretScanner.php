@@ -35,6 +35,8 @@ final class SecretScanner
 
     private const array SKIP_DIRS = ['.git', 'vendor', 'node_modules', 'storage', 'bootstrap/cache', 'public/build', 'public/hot'];
 
+    private const array SKIP_ANYWHERE = ['.git', 'node_modules'];
+
     private const int MAX_FILE_BYTES = 1_048_576;
 
     /** @param list<string> $ignorePrefixes Relative path prefixes excluded from file scans. */
@@ -199,7 +201,7 @@ final class SecretScanner
         foreach ($files as $rel) {
             $full = $root . '/' . $rel;
 
-            if (! is_file($full) || is_link($full) || $this->skippedDir($rel) || $this->ignored($rel)) {
+            if (! is_file($full) || is_link($full) || $this->skippedDir($root, $rel) || $this->ignored($rel)) {
                 continue;
             }
 
@@ -252,7 +254,7 @@ final class SecretScanner
             $rel = $relative === '' ? $entry : $relative . '/' . $entry;
             $full = $root . '/' . $rel;
 
-            if (is_link($full) || $this->skippedDir($rel) || $this->ignored($rel)) {
+            if (is_link($full) || $this->skippedDir($root, $rel) || $this->ignored($rel)) {
                 continue;
             }
 
@@ -267,10 +269,28 @@ final class SecretScanner
         }
     }
 
-    private function skippedDir(string $relative): bool
+    /**
+     * Whether a path lies inside a directory that is never scanned: the root-level skip list, or
+     * a nested dependency/VCS directory (`node_modules`, `.git`, and Composer `vendor` directories)
+     * at any depth, as found in monorepos. A `vendor` directory without `autoload.php` (for example
+     * published `resources/views/vendor`) is project code and is still scanned.
+     */
+    private function skippedDir(string $root, string $relative): bool
     {
         foreach (self::SKIP_DIRS as $dir) {
             if ($relative === $dir || str_starts_with($relative, $dir . '/')) {
+                return true;
+            }
+        }
+
+        $segments = explode('/', $relative);
+
+        foreach ($segments as $index => $segment) {
+            if (in_array($segment, self::SKIP_ANYWHERE, true)) {
+                return true;
+            }
+
+            if ($segment === 'vendor' && is_file($root . '/' . implode('/', array_slice($segments, 0, $index + 1)) . '/autoload.php')) {
                 return true;
             }
         }
