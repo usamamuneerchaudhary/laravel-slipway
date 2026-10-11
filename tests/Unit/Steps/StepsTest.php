@@ -13,6 +13,7 @@ use Usamamuneerchaudhary\Slipway\Steps\BuildArtifact;
 use Usamamuneerchaudhary\Slipway\Steps\BuildAssets;
 use Usamamuneerchaudhary\Slipway\Steps\ComposerAudit;
 use Usamamuneerchaudhary\Slipway\Steps\ComposerValidate;
+use Usamamuneerchaudhary\Slipway\Steps\Infection;
 use Usamamuneerchaudhary\Slipway\Steps\Larastan;
 use Usamamuneerchaudhary\Slipway\Steps\NpmAudit;
 use Usamamuneerchaudhary\Slipway\Steps\NpmTest;
@@ -175,6 +176,72 @@ final class StepsTest extends TestCase
         $this->assertRejects('config', static fn () => (new Rector())->contribute(['config' => '/etc/rector.php']));
         $this->assertRejects('config', static fn () => (new Rector())->contribute(['config' => '../rector.php']));
         $this->assertRejects('config', static fn () => (new Rector())->contribute(['config' => 'rector.php; id']));
+    }
+
+    public function test_infection_always_requests_pcov_and_uses_ci_flags(): void
+    {
+        $c = (new Infection())->contribute(['prepare_env' => false]);
+
+        $this->assertSame('pcov', $c->coverage);
+        $this->assertSame('testing', $c->env['APP_ENV']);
+        $this->assertSame('vendor/bin/infection --no-progress --no-interaction', $this->commands($c));
+    }
+
+    public function test_infection_options_append_expected_flags(): void
+    {
+        $cmd = $this->commands((new Infection())->contribute([
+            'min_msi' => 70,
+            'min_covered_msi' => 80,
+            'threads' => 'max',
+            'config' => 'ci/infection.json',
+            'only_covering_tests' => true,
+            'prepare_env' => false,
+        ]));
+
+        $this->assertStringContainsString('--min-msi=70', $cmd);
+        $this->assertStringContainsString('--min-covered-msi=80', $cmd);
+        $this->assertStringContainsString('--threads=max', $cmd);
+        $this->assertStringContainsString('--configuration=ci/infection.json', $cmd);
+        $this->assertStringContainsString('--only-covering-test-cases', $cmd);
+        $this->assertStringContainsString('--threads=4', $this->commands((new Infection())->contribute(['threads' => 4, 'prepare_env' => false])));
+    }
+
+    public function test_infection_git_diff_fetches_the_base_and_limits_mutants(): void
+    {
+        $origin = $this->commands((new Infection())->contribute(['git_diff' => 'origin/main', 'prepare_env' => false]));
+
+        $this->assertStringContainsString('git fetch --depth=1 origin main', $origin);
+        $this->assertStringContainsString('--git-diff-base=origin/main', $origin);
+        $this->assertStringContainsString('--git-diff-filter=AM', $origin);
+        $this->assertStringContainsString('--ignore-msi-with-no-mutations', $origin);
+        $this->assertStringContainsString('git fetch --depth=1 origin main', $this->commands((new Infection())->contribute(['git_diff' => 'main', 'prepare_env' => false])));
+    }
+
+    public function test_infection_prepares_the_laravel_environment_unless_disabled(): void
+    {
+        $this->assertStringContainsString('cp .env.example .env', $this->commands((new Infection())->contribute([])));
+        $this->assertStringNotContainsString('.env.example', $this->commands((new Infection())->contribute(['prepare_env' => false])));
+    }
+
+    public function test_infection_rejects_unknown_and_unsafe_options(): void
+    {
+        $this->assertRejects('unknown option [x]', static fn () => (new Infection())->contribute(['x' => 1]));
+        $this->assertRejects('config', static fn () => (new Infection())->contribute(['config' => '/etc/infection.json']));
+        $this->assertRejects('config', static fn () => (new Infection())->contribute(['config' => '../infection.json']));
+        $this->assertRejects('git_diff', static fn () => (new Infection())->contribute(['git_diff' => 'origin/main; id']));
+        $this->assertRejects('git_diff', static fn () => (new Infection())->contribute(['git_diff' => '../main']));
+        $this->assertRejects('min_msi', static fn () => (new Infection())->contribute(['min_msi' => 150]));
+        $this->assertRejects('min_covered_msi', static fn () => (new Infection())->contribute(['min_covered_msi' => -1]));
+        $this->assertRejects('threads', static fn () => (new Infection())->contribute(['threads' => 0]));
+        $this->assertRejects('threads', static fn () => (new Infection())->contribute(['threads' => 'auto']));
+    }
+
+    public function test_infection_requests_pcov_in_compiled_github_yaml(): void
+    {
+        $yaml = Fixture::compile(Fixture::minimal(['stages' => ['mutate' => ['infection']]]))->files['github']->contents;
+
+        $this->assertStringContainsString('coverage: pcov', $yaml);
+        $this->assertStringContainsString('vendor/bin/infection --no-progress --no-interaction', $yaml);
     }
 
     public function test_build_assets_script_name_must_be_a_single_word(): void

@@ -26,6 +26,7 @@ use Usamamuneerchaudhary\Slipway\Steps\BuildArtifact;
 use Usamamuneerchaudhary\Slipway\Steps\BuildAssets;
 use Usamamuneerchaudhary\Slipway\Steps\ComposerAudit;
 use Usamamuneerchaudhary\Slipway\Steps\ComposerValidate;
+use Usamamuneerchaudhary\Slipway\Steps\Infection;
 use Usamamuneerchaudhary\Slipway\Steps\Larastan;
 use Usamamuneerchaudhary\Slipway\Steps\NpmAudit;
 use Usamamuneerchaudhary\Slipway\Steps\NpmTest;
@@ -44,7 +45,7 @@ use Usamamuneerchaudhary\Slipway\Support\Registry;
  */
 final class Slipway
 {
-    public const string VERSION = '1.2';
+    public const string VERSION = '1.6';
 
     /** @param (callable(class-string):object)|null $resolver Container `make`, for DI into user classes. */
     public static function steps(?callable $resolver = null): Registry
@@ -63,6 +64,7 @@ final class Slipway
             'secret-scan' => SecretScan::class,
             'pest' => Pest::class,
             'phpunit' => PhpUnit::class,
+            'infection' => Infection::class,
             'build-assets' => BuildAssets::class,
             'build-artifact' => BuildArtifact::class,
         ] as $alias => $class) {

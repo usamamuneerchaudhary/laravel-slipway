@@ -83,8 +83,9 @@ __DRIVERS__
     |   'larastan' => ['level' => 6]            an alias with options
     |   ['run' => 'php artisan lint:routes']    an inline command (POSIX sh)
     |
-    | Built-in aliases: pint, larastan, composer-audit, npm-audit, secret-scan,
-    |                   pest, phpunit, build-assets, build-artifact
+    | Built-in aliases: pint, larastan, composer-validate, composer-audit, npm-audit,
+    |                   npm-test, rector, secret-scan, pest, phpunit, infection,
+    |                   build-assets, build-artifact
     |
     | Stage options: matrix, php, parallel (one job per step), services, timeout, on, env.
     |

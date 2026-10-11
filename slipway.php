@@ -5,8 +5,8 @@
 | Slipway's own pipeline (dogfooding)
 |--------------------------------------------------------------------------
 |
-| This package builds its CI with itself. .github/workflows/slipway.yml is GENERATED from this
-| file; never edit it by hand. After changing this file run:
+| This package builds its CI with itself. .github/workflows/slipway.yml and .circleci/config.yml
+| are GENERATED from this file; never edit them by hand. After changing this file run:
 |
 |   vendor/bin/testbench slipway:compile
 |
@@ -29,6 +29,9 @@ return [
                     'shivammathur/setup-php' => 'eb7c497e18156a6bbabfef1d3a82760b9eda3962', // v2
                 ],
             ],
+        ],
+        'circleci' => [
+            'enabled' => true,
         ],
     ],
 

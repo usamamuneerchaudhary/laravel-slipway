@@ -5,6 +5,10 @@ and the project follows [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Added
+
+- Step `infection`: opt-in mutation testing with Infection (`min_msi`, `min_covered_msi`, `threads`, `config`, `git_diff`, `only_covering_tests`). Not added to the default presets.
+
 ### Changed
 
 - Documentation moved to [https://laravel-slipway.mintlify.site/](https://laravel-slipway.mintlify.site/).
