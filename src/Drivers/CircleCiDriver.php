@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace Usamamuneerchaudhary\Slipway\Drivers;
 
 use InvalidArgumentException;
-use parallel\Runtime\Error\Bootstrap;
 use Usamamuneerchaudhary\Slipway\Model\Feature;
 use Usamamuneerchaudhary\Slipway\Model\Job;
 use Usamamuneerchaudhary\Slipway\Model\Pipeline;
