@@ -13,7 +13,7 @@ final class InitCommand extends Command
 {
     protected $signature = 'slipway:init
         {--preset=app : Starter configuration: app, package or deploy}
-        {--driver=* : Provider to enable (github, bitbucket, gitlab). Repeat for several}
+        {--driver=* : Provider to enable (github, bitbucket, gitlab, circleci). Repeat for several}
         {--force : Overwrite an existing configuration file}';
 
     protected $description = 'Create the Slipway configuration file from a preset';

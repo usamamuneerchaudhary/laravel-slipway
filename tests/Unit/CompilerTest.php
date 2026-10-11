@@ -198,7 +198,7 @@ final class CompilerTest extends TestCase
 
     public function test_unknown_driver_is_reported_with_available_ones(): void
     {
-        $errors = $this->errorsOf(Fixture::minimal(['drivers' => ['circleci' => true]]));
+        $errors = $this->errorsOf(Fixture::minimal(['drivers' => ['jenkins' => true]]));
 
         $this->assertStringContainsString('no such driver', $errors);
         $this->assertStringContainsString('github', $errors);

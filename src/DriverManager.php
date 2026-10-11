@@ -7,6 +7,7 @@ namespace Usamamuneerchaudhary\Slipway;
 use InvalidArgumentException;
 use Usamamuneerchaudhary\Slipway\Contracts\Driver;
 use Usamamuneerchaudhary\Slipway\Drivers\BitbucketDriver;
+use Usamamuneerchaudhary\Slipway\Drivers\CircleCiDriver;
 use Usamamuneerchaudhary\Slipway\Drivers\GitHubDriver;
 use Usamamuneerchaudhary\Slipway\Drivers\GitLabDriver;
 
@@ -24,6 +25,7 @@ final class DriverManager
         $manager->register(new GitHubDriver());
         $manager->register(new BitbucketDriver());
         $manager->register(new GitLabDriver());
+        $manager->register(new CircleCiDriver());
 
         return $manager;
     }

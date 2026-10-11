@@ -6,7 +6,7 @@
 |--------------------------------------------------------------------------
 |
 | This file is the single source of truth for your pipeline. The YAML files
-| (.github/workflows/slipway.yml, bitbucket-pipelines.yml, .gitlab-ci.yml) are
+| (.github/workflows/slipway.yml, bitbucket-pipelines.yml, .gitlab-ci.yml, .circleci/config.yml) are
 | GENERATED from it and committed. Never edit them by hand.
 |
 |   php artisan slipway:compile    write the YAML files

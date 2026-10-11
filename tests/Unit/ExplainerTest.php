@@ -58,10 +58,10 @@ final class ExplainerTest extends TestCase
     {
         $matrix = CapabilityMatrix::build(DriverManager::withDefaults());
 
-        $this->assertSame(['Feature', 'Bitbucket Pipelines', 'GitHub Actions', 'GitLab CI/CD'], $matrix['headers']);
+        $this->assertSame(['Feature', 'Bitbucket Pipelines', 'CircleCI', 'GitHub Actions', 'GitLab CI/CD'], $matrix['headers']);
         $this->assertCount(count(\Usamamuneerchaudhary\Slipway\Model\Feature::cases()), $matrix['rows']);
         foreach ($matrix['rows'] as $row) {
-            $this->assertCount(4, $row);
+            $this->assertCount(5, $row);
             foreach (array_slice($row, 1) as $cell) {
                 $this->assertContains($cell, ['yes', 'partial', 'no']);
             }
@@ -73,7 +73,7 @@ final class ExplainerTest extends TestCase
     {
         $md = CapabilityMatrix::markdown(DriverManager::withDefaults());
 
-        $this->assertStringStartsWith('| Feature | Bitbucket Pipelines | GitHub Actions | GitLab CI/CD |', $md);
-        $this->assertStringContainsString('|---|---|---|---|', $md);
+        $this->assertStringStartsWith('| Feature | Bitbucket Pipelines | CircleCI | GitHub Actions | GitLab CI/CD |', $md);
+        $this->assertStringContainsString('|---|---|---|---|---|', $md);
     }
 }

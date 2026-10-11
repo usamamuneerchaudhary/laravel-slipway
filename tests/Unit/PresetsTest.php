@@ -26,11 +26,11 @@ final class PresetsTest extends TestCase
     public function test_every_preset_compiles_for_every_provider(): void
     {
         foreach (Presets::names() as $preset) {
-            $config = $this->load(Presets::render($preset, ['github', 'bitbucket', 'gitlab']));
+            $config = $this->load(Presets::render($preset, ['github', 'bitbucket', 'gitlab', 'circleci']));
 
             $result = Fixture::compile($config);
 
-            $this->assertSame(['github', 'bitbucket', 'gitlab'], array_keys($result->files), $preset);
+            $this->assertSame(['github', 'bitbucket', 'gitlab', 'circleci'], array_keys($result->files), $preset);
         }
     }
 
@@ -84,7 +84,7 @@ final class PresetsTest extends TestCase
 
     public function test_unknown_presets_and_drivers_are_rejected(): void
     {
-        foreach ([fn () => Presets::render('nope', ['github']), fn () => Presets::render('app', ['circleci']), fn () => Presets::target('nope')] as $call) {
+        foreach ([fn () => Presets::render('nope', ['github']), fn () => Presets::render('app', ['jenkins']), fn () => Presets::target('nope')] as $call) {
             try {
                 $call();
                 $this->fail('expected InvalidArgumentException');

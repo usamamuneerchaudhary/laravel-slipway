@@ -31,7 +31,7 @@ final class Presets
      * @param list<string> $enabledDrivers Drivers set to enabled; every known driver is listed.
      * @param list<string> $allDrivers
      */
-    public static function render(string $preset, array $enabledDrivers, array $allDrivers = ['github', 'bitbucket', 'gitlab']): string
+    public static function render(string $preset, array $enabledDrivers, array $allDrivers = ['github', 'bitbucket', 'gitlab', 'circleci']): string
     {
         self::assertKnown($preset);
 

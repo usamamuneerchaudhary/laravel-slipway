@@ -111,7 +111,7 @@ final class Compiler
         }
 
         if ($files === [] && $errors === []) {
-            $errors[] = 'drivers: no driver is enabled. Enable at least one (github, bitbucket, gitlab).';
+            $errors[] = 'drivers: no driver is enabled. Enable at least one (' . implode(', ', $this->drivers->names()) . ').';
         }
 
         $paths = [];
