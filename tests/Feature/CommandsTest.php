@@ -7,6 +7,7 @@ namespace Usamamuneerchaudhary\Slipway\Tests\Feature;
 use Illuminate\Support\Facades\Artisan;
 use Orchestra\Testbench\TestCase;
 use Usamamuneerchaudhary\Slipway\DriverManager;
+use Usamamuneerchaudhary\Slipway\Local\DockerDetector;
 use Usamamuneerchaudhary\Slipway\SlipwayServiceProvider;
 use Usamamuneerchaudhary\Slipway\Support\ActionPins;
 use Usamamuneerchaudhary\Slipway\Tests\Support\Fixture;
@@ -44,7 +45,7 @@ final class CommandsTest extends TestCase
             $this->markTestSkipped('The application base path is the package root; refusing to touch it.');
         }
 
-        foreach (['config/slipway.php', '.github', 'bitbucket-pipelines.yml', '.gitlab-ci.yml'] as $path) {
+        foreach (['config/slipway.php', '.github', 'bitbucket-pipelines.yml', '.gitlab-ci.yml', 'ci-local.sh'] as $path) {
             Fixture::remove($this->app->basePath($path));
         }
     }
@@ -53,7 +54,7 @@ final class CommandsTest extends TestCase
     {
         // tearDown still runs after a skip in setUp(), so it needs the same guard.
         if ($this->app !== null && $this->basePathIsDisposable()) {
-            foreach (['config/slipway.php', '.github', 'bitbucket-pipelines.yml', '.gitlab-ci.yml'] as $path) {
+            foreach (['config/slipway.php', '.github', 'bitbucket-pipelines.yml', '.gitlab-ci.yml', 'ci-local.sh'] as $path) {
                 Fixture::remove($this->app->basePath($path));
             }
         }
@@ -68,7 +69,7 @@ final class CommandsTest extends TestCase
     {
         $registered = array_keys(Artisan::all());
 
-        foreach (['init', 'compile', 'check', 'validate', 'explain', 'drivers', 'scan', 'verify', 'pin'] as $name) {
+        foreach (['init', 'compile', 'check', 'validate', 'explain', 'drivers', 'scan', 'verify', 'pin', 'test-pipeline'] as $name) {
             $this->assertContains("slipway:{$name}", $registered);
         }
 
@@ -258,6 +259,84 @@ final class CommandsTest extends TestCase
         config(['slipway' => Fixture::full()]);
 
         $this->artisan('slipway:verify', ['environment' => 'nope'])->assertExitCode(1);
+    }
+
+    public function test_test_pipeline_writes_an_executable_script_and_refuses_to_overwrite_it(): void
+    {
+        config(['slipway' => Fixture::minimal()]);
+
+        $this->artisan('slipway:test-pipeline', ['--no-interaction' => true])->assertExitCode(0);
+
+        $path = $this->app->basePath('ci-local.sh');
+        $this->assertFileExists($path);
+        $this->assertTrue(is_executable($path));
+        $this->assertStringContainsString('docker run', (string) file_get_contents($path));
+
+        $this->artisan('slipway:test-pipeline', ['--no-interaction' => true])->expectsOutputToContain('--force')->assertExitCode(1);
+        $this->artisan('slipway:test-pipeline', ['--no-interaction' => true, '--force' => true])->assertExitCode(0);
+    }
+
+    public function test_test_pipeline_rejects_an_unknown_driver(): void
+    {
+        config(['slipway' => Fixture::minimal(['drivers' => ['github' => true, 'acme' => ['enabled' => false]]])]);
+
+        $this->artisan('slipway:test-pipeline', ['--driver' => 'acme', '--no-interaction' => true])
+            ->expectsOutputToContain('Unknown driver')
+            ->assertExitCode(1);
+    }
+
+    public function test_test_pipeline_requires_driver_when_several_are_configured_without_a_tty(): void
+    {
+        config(['slipway' => Fixture::minimal(['drivers' => ['github' => true, 'gitlab' => true]])]);
+
+        $this->artisan('slipway:test-pipeline', ['--no-interaction' => true])
+            ->expectsOutputToContain('--driver')
+            ->assertExitCode(1);
+    }
+
+    public function test_test_pipeline_asks_which_provider_to_emulate_when_interactive(): void
+    {
+        config(['slipway' => Fixture::minimal(['drivers' => ['github' => true, 'gitlab' => true]])]);
+
+        $this->artisan('slipway:test-pipeline', ['--no-run' => true])
+            ->expectsChoice('Which provider should this local run emulate?', 'gitlab', ['github', 'gitlab'])
+            ->assertExitCode(0);
+
+        $this->assertStringContainsString('local pipeline runs (gitlab)', (string) file_get_contents($this->app->basePath('ci-local.sh')));
+    }
+
+    public function test_test_pipeline_warns_when_docker_is_missing_but_still_writes_the_script(): void
+    {
+        $this->app->instance(DockerDetector::class, new DockerDetector(static fn (): bool => false));
+        config(['slipway' => Fixture::minimal()]);
+
+        $this->artisan('slipway:test-pipeline', ['--no-interaction' => true])
+            ->expectsOutputToContain('Docker is not installed')
+            ->assertExitCode(0);
+
+        $this->assertFileExists($this->app->basePath('ci-local.sh'));
+    }
+
+    public function test_test_pipeline_run_fails_when_docker_is_missing(): void
+    {
+        $this->app->instance(DockerDetector::class, new DockerDetector(static fn (): bool => false));
+        config(['slipway' => Fixture::minimal()]);
+
+        $this->artisan('slipway:test-pipeline', ['--run' => true, '--no-interaction' => true])
+            ->expectsOutputToContain('Docker is not installed')
+            ->assertExitCode(1);
+    }
+
+    public function test_test_pipeline_interactive_run_fails_when_docker_is_missing(): void
+    {
+        $this->app->instance(DockerDetector::class, new DockerDetector(static fn (): bool => false));
+        config(['slipway' => Fixture::minimal()]);
+
+        $this->artisan('slipway:test-pipeline')
+            ->expectsOutputToContain('Docker is not installed')
+            ->assertExitCode(1);
+
+        $this->assertFileExists($this->app->basePath('ci-local.sh'));
     }
 
     public function test_commands_explain_how_to_get_started_when_there_is_no_configuration(): void
