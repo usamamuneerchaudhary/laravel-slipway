@@ -3,15 +3,39 @@
 All notable changes are documented here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 and the project follows [Semantic Versioning](https://semver.org/).
 
-## [Unreleased]
+## [1.7] - 2026-10-12
 
 ### Added
 
+- `slipway:test-pipeline`: writes `ci-local.sh` from `config/slipway.php` and runs a pipeline stage locally in Docker.
+  Interactive terminals prompt for driver, stage and PHP version, then run after writing. `--no-run` writes the script
+  only; `--no-interaction` needs `--driver` when more than one provider is configured. Warns if Docker is not on PATH;
+  `--run` fails instead of starting containers when it is missing.
+
+## [1.6] - 2026-10-11
+
+### Added
+
+- CircleCI pipeline file for the package's own CI.
 - Step `infection`: opt-in mutation testing with Infection (`min_msi`, `min_covered_msi`, `threads`, `config`, `git_diff`, `only_covering_tests`). Not added to the default presets.
+
+## [1.5] - 2026-10-11
+
+### Added
+
+- CircleCI driver (`circleci`).
+
+## [1.4] - 2026-10-10
 
 ### Changed
 
-- Documentation moved to [https://laravel-slipway.mintlify.site/](https://laravel-slipway.mintlify.site/).
+- Secret scanner improvements.
+
+## [1.3] - 2026-10-10
+
+### Added
+
+- Secret scanner skip paths for generated and vendor folders.
 
 ## [1.2] - 2026-10-09
 
