@@ -45,8 +45,9 @@ return [
 ```
 
 ```bash
-php artisan slipway:compile   # writes .github/workflows/slipway.yml and .gitlab-ci.yml
-php artisan slipway:check     # fails if the committed YAML is stale (CI runs this for you)
+php artisan slipway:compile          # writes .github/workflows/slipway.yml and .gitlab-ci.yml
+php artisan slipway:check            # fails if the committed YAML is stale (CI runs this for you)
+php artisan slipway:test-pipeline    # writes ./ci-local.sh and runs a stage locally in Docker
 ```
 
 ## Why
