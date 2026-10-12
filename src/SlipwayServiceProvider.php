@@ -13,6 +13,7 @@ use Usamamuneerchaudhary\Slipway\Console\ExplainCommand;
 use Usamamuneerchaudhary\Slipway\Console\InitCommand;
 use Usamamuneerchaudhary\Slipway\Console\PinCommand;
 use Usamamuneerchaudhary\Slipway\Console\ScanCommand;
+use Usamamuneerchaudhary\Slipway\Console\TestPipelineCommand;
 use Usamamuneerchaudhary\Slipway\Console\ValidateCommand;
 use Usamamuneerchaudhary\Slipway\Console\VerifyCommand;
 use Usamamuneerchaudhary\Slipway\Security\SecretScanner;
@@ -69,6 +70,7 @@ final class SlipwayServiceProvider extends ServiceProvider
             ScanCommand::class,
             VerifyCommand::class,
             PinCommand::class,
+            TestPipelineCommand::class,
         ]);
     }
 }
