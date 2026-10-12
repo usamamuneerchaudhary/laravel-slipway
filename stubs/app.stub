@@ -9,10 +9,11 @@
 | (.github/workflows/slipway.yml, bitbucket-pipelines.yml, .gitlab-ci.yml, .circleci/config.yml) are
 | GENERATED from it and committed. Never edit them by hand.
 |
-|   php artisan slipway:compile    write the YAML files
-|   php artisan slipway:check      fail if the YAML is out of date (runs in CI too)
-|   php artisan slipway:explain    describe the pipeline in plain English
-|   php artisan slipway:drivers    which features each provider supports
+|   php artisan slipway:compile         write the YAML files
+|   php artisan slipway:check           fail if the YAML is out of date (runs in CI too)
+|   php artisan slipway:explain         describe the pipeline in plain English
+|   php artisan slipway:drivers         which features each provider supports
+|   php artisan slipway:test-pipeline   write ci-local.sh and run a stage in Docker
 |
 | Keep this file free of closures so `php artisan config:cache` keeps working.
 | Secrets are referenced by NAME only. Never put a secret value in this file.
