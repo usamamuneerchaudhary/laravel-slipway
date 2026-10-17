@@ -21,6 +21,7 @@ final class TestPipelineCommand extends SlipwayCommand
         {--force : Overwrite an existing script}
         {--run : Write the script and run it}
         {--no-run : Write the script without running it}
+        {--clean : Run against a detached worktree of HEAD}
         {--include-deploy : Include deploy jobs (they may SSH or call a host)}
         {--config= : Path to a configuration file (default: config/slipway.php)}';
 
@@ -128,7 +129,8 @@ final class TestPipelineCommand extends SlipwayCommand
         }
 
         $wantRun = $this->wantsRun();
-        $display = './' . ltrim($path, './') . ' ' . $stage . ' ' . $php;
+        $clean = (bool) $this->option('clean');
+        $display = './' . ltrim($path, './') . ' ' . $stage . ' ' . $php . ($clean ? ' --clean' : '');
 
         if (! $wantRun) {
             $this->line('Run ' . $display);
@@ -149,7 +151,12 @@ final class TestPipelineCommand extends SlipwayCommand
         $this->newLine();
         $this->info('Running ' . $display . ' ...');
 
-        passthru('bash ' . escapeshellarg($target) . ' ' . escapeshellarg($stage) . ' ' . escapeshellarg($php), $exitCode);
+        $command = 'bash ' . escapeshellarg($target) . ' ' . escapeshellarg($stage) . ' ' . escapeshellarg($php);
+        if ($clean) {
+            $command .= ' --clean';
+        }
+
+        passthru($command, $exitCode);
 
         return $exitCode === 0 ? self::SUCCESS : self::FAILURE;
     }

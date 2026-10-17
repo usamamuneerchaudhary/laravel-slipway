@@ -81,6 +81,8 @@ final class LocalPipelineScript
         $lines[] = '#';
         $lines[] = '#   ./ci-local.sh                    # ' . $defaultStage . ' on PHP ' . $defaultPhp;
         $lines[] = '#   ./ci-local.sh ' . $defaultStage . ' ' . $defaultPhp;
+        $lines[] = '#   ./ci-local.sh --clean            # detached worktree of HEAD';
+        $lines[] = '#   ./ci-local.sh ' . $defaultStage . ' ' . $defaultPhp . ' --clean';
         foreach (array_keys($jobsByStage) as $stage) {
             if ($stage !== $defaultStage) {
                 $lines[] = '#   ./ci-local.sh ' . $stage;
@@ -89,10 +91,11 @@ final class LocalPipelineScript
         $lines[] = '#';
         $lines[] = 'set -euo pipefail';
         $lines[] = '';
-        $lines[] = 'STAGE="${1:-' . $defaultStage . '}"';
-        $lines[] = 'PHP_VERSION="${2:-' . $defaultPhp . '}"';
+        $lines[] = $this->argumentParsing($defaultStage, $defaultPhp);
         $lines[] = 'MEMORY="${CI_MEMORY:-4g}"';
         $lines[] = 'ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"';
+        $lines[] = 'SOURCE="$ROOT"';
+        $lines[] = 'WORKTREE=""';
         $lines[] = 'RUN_ID="slipway-$$"';
         $lines[] = 'PAUSE_NAME="${RUN_ID}-pause"';
         $lines[] = 'NETWORK_NAME="${RUN_ID}-net"';
@@ -109,8 +112,16 @@ final class LocalPipelineScript
         $lines[] = 'cleanup() {';
         $lines[] = '  reset_runtime';
         $lines[] = '  rm -f "$JOB_SCRIPT" "$SECRETS_ENV"';
+        $lines[] = '  if [ -n "${WORKTREE:-}" ]; then';
+        $lines[] = '    if [ -d "$WORKTREE" ]; then';
+        $lines[] = '      git -C "$ROOT" worktree remove --force "$WORKTREE" >/dev/null 2>&1 || rm -rf "$WORKTREE"';
+        $lines[] = '    fi';
+        $lines[] = '    git -C "$ROOT" worktree prune >/dev/null 2>&1 || true';
+        $lines[] = '  fi';
         $lines[] = '}';
         $lines[] = 'trap cleanup EXIT';
+        $lines[] = '';
+        $lines[] = $this->selectSource();
         $lines[] = '';
         $lines[] = 'if ! docker info >/dev/null 2>&1; then';
         $lines[] = '  echo "Docker is not running." >&2';
@@ -140,7 +151,7 @@ final class LocalPipelineScript
         $lines[] = 'case "$STAGE" in';
         $lines[] = "  {$stageNames}) ;;";
         $lines[] = '  *)';
-        $lines[] = '    echo "Usage: $0 [' . $usageStages . '] [php-version]" >&2';
+        $lines[] = '    echo "Usage: $0 [' . $usageStages . '] [php-version] [--clean]" >&2';
         $lines[] = '    exit 1';
         $lines[] = '    ;;';
         $lines[] = 'esac';
@@ -290,6 +301,59 @@ final class LocalPipelineScript
         return $value;
     }
 
+    private function argumentParsing(string $defaultStage, string $defaultPhp): string
+    {
+        return <<<SH
+CLEAN=0
+STAGE=""
+PHP_VERSION=""
+for arg in "\$@"; do
+  case "\$arg" in
+    --clean)
+      CLEAN=1
+      ;;
+    --*)
+      echo "Unknown option: \$arg" >&2
+      echo "Usage: \$0 [stage] [php-version] [--clean]" >&2
+      exit 1
+      ;;
+    *)
+      if [ -z "\$STAGE" ]; then
+        STAGE="\$arg"
+      elif [ -z "\$PHP_VERSION" ]; then
+        PHP_VERSION="\$arg"
+      fi
+      ;;
+  esac
+done
+STAGE="\${STAGE:-{$defaultStage}}"
+PHP_VERSION="\${PHP_VERSION:-{$defaultPhp}}"
+SH;
+    }
+
+    private function selectSource(): string
+    {
+        return <<<'SH'
+if [ "$CLEAN" -eq 1 ]; then
+  if ! git -C "$ROOT" rev-parse --verify HEAD >/dev/null 2>&1; then
+    echo "Cannot run --clean: this directory has no git HEAD." >&2
+    exit 1
+  fi
+  WORKTREE="$(mktemp -d)"
+  rmdir "$WORKTREE"
+  git -C "$ROOT" worktree prune >/dev/null 2>&1 || true
+  git -C "$ROOT" worktree add --detach "$WORKTREE" HEAD
+  SOURCE="$WORKTREE"
+  echo "Running against detached HEAD in $WORKTREE."
+elif git -C "$ROOT" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
+  status="$(git -C "$ROOT" status --porcelain 2>/dev/null || true)"
+  if [ -n "$status" ]; then
+    echo "Warning: uncommitted or untracked files. This local run may not match CI. Pass --clean to run against HEAD." >&2
+  fi
+fi
+SH;
+    }
+
     private function loadSecretsFunction(): string
     {
         return <<<'SH'
@@ -378,7 +442,7 @@ SH;
         $envFile = $hasSecrets ? ' --env-file "$SECRETS_ENV"' : '';
 
         $lines[] = '  docker run --rm --memory="$MEMORY"' . $network . $envFile . ' \\';
-        $lines[] = '    -v "$ROOT":/src:ro -v "$JOB_SCRIPT":/ci.sh:ro \\';
+        $lines[] = '    -v "$SOURCE":/src:ro -v "$JOB_SCRIPT":/ci.sh:ro \\';
         $lines[] = '    ' . $dockerImage . ' sh /ci.sh';
         $lines[] = '}';
 
@@ -505,6 +569,9 @@ SH;
             }
             if ($job->node !== null) {
                 $lines[] = PhpBootstrap::nodeInstall($job->node);
+            }
+            if ($job->bun !== null) {
+                $lines[] = PhpBootstrap::bunInstall($job->bun);
             }
 
             return $this->failFast(implode("\n", $lines));
