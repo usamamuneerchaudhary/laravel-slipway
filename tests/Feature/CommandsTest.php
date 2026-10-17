@@ -45,7 +45,7 @@ final class CommandsTest extends TestCase
             $this->markTestSkipped('The application base path is the package root; refusing to touch it.');
         }
 
-        foreach (['config/slipway.php', '.github', 'bitbucket-pipelines.yml', '.gitlab-ci.yml', 'ci-local.sh'] as $path) {
+        foreach (['config/slipway.php', '.github', 'bitbucket-pipelines.yml', '.gitlab-ci.yml', 'ci-local.sh', 'tests/slipway-tia.php'] as $path) {
             Fixture::remove($this->app->basePath($path));
         }
     }
@@ -54,7 +54,7 @@ final class CommandsTest extends TestCase
     {
         // tearDown still runs after a skip in setUp(), so it needs the same guard.
         if ($this->app !== null && $this->basePathIsDisposable()) {
-            foreach (['config/slipway.php', '.github', 'bitbucket-pipelines.yml', '.gitlab-ci.yml', 'ci-local.sh'] as $path) {
+            foreach (['config/slipway.php', '.github', 'bitbucket-pipelines.yml', '.gitlab-ci.yml', 'ci-local.sh', 'tests/slipway-tia.php'] as $path) {
                 Fixture::remove($this->app->basePath($path));
             }
         }
@@ -69,7 +69,7 @@ final class CommandsTest extends TestCase
     {
         $registered = array_keys(Artisan::all());
 
-        foreach (['init', 'compile', 'check', 'validate', 'explain', 'drivers', 'scan', 'verify', 'pin', 'test-pipeline'] as $name) {
+        foreach (['init', 'compile', 'check', 'validate', 'explain', 'drivers', 'scan', 'verify', 'pin', 'test-pipeline', 'tia'] as $name) {
             $this->assertContains("slipway:{$name}", $registered);
         }
 
@@ -337,6 +337,165 @@ final class CommandsTest extends TestCase
             ->assertExitCode(1);
 
         $this->assertFileExists($this->app->basePath('ci-local.sh'));
+    }
+
+    public function test_test_pipeline_clean_is_printed_on_the_run_hint(): void
+    {
+        config(['slipway' => Fixture::minimal()]);
+
+        $this->artisan('slipway:test-pipeline', ['--no-run' => true, '--clean' => true, '--no-interaction' => true])
+            ->expectsOutputToContain('--clean')
+            ->assertExitCode(0);
+
+        $this->assertStringContainsString('worktree add --detach', (string) file_get_contents($this->app->basePath('ci-local.sh')));
+    }
+
+    public function test_test_pipeline_run_appends_clean_to_the_executed_command(): void
+    {
+        $this->app->instance(DockerDetector::class, new DockerDetector(static fn (): bool => true));
+        config(['slipway' => Fixture::minimal()]);
+
+        $bin = Fixture::tempDir();
+        $this->cleanup[] = $bin;
+        $log = $bin . '/args';
+        file_put_contents($bin . '/bash', "#!/bin/sh\nprintf '%s\\n' \"\$*\" > " . escapeshellarg($log) . "\n");
+        chmod($bin . '/bash', 0755);
+
+        $path = getenv('PATH') ?: '';
+        $prefixed = $bin . PATH_SEPARATOR . $path;
+        putenv('PATH=' . $prefixed);
+        $_ENV['PATH'] = $prefixed;
+        $_SERVER['PATH'] = $prefixed;
+
+        try {
+            $resolved = trim((string) shell_exec('command -v bash'));
+            $this->assertSame($bin . '/bash', $resolved);
+
+            $this->artisan('slipway:test-pipeline', [
+                '--run' => true,
+                '--clean' => true,
+                '--force' => true,
+                '--no-interaction' => true,
+            ])->assertExitCode(0);
+        } finally {
+            putenv('PATH=' . $path);
+            $_ENV['PATH'] = $path;
+            $_SERVER['PATH'] = $path;
+        }
+
+        $args = (string) file_get_contents($log);
+        $this->assertStringContainsString('ci-local.sh', $args);
+        $this->assertMatchesRegularExpression('/--clean\s*$/', $args);
+    }
+
+    public function test_pin_includes_unpinned_actions_from_the_tia_baseline_workflow(): void
+    {
+        $sha = str_repeat('a1', 20);
+        $this->app->instance(ActionPins::class, new ActionPins(static fn (string $action, string $ref): ?string => $sha));
+        $pins = [
+            'actions/checkout' => $sha,
+            'actions/cache' => $sha,
+            'shivammathur/setup-php' => $sha,
+        ];
+        config(['slipway' => Fixture::minimal([
+            'drivers' => ['github' => ['options' => ['pins' => $pins]]],
+            'stages' => ['test' => ['pest' => ['tia' => true]]],
+        ])]);
+
+        $this->artisan('slipway:pin')
+            ->expectsOutputToContain("'actions/upload-artifact' => '{$sha}', // v4")
+            ->assertExitCode(0);
+    }
+
+    public function test_tia_refuses_to_create_a_pest_file_that_does_not_exist(): void
+    {
+        $package = Fixture::tempDir();
+        $this->cleanup[] = $package;
+        $previous = getcwd();
+        chdir($package);
+
+        try {
+            $this->artisan('slipway:tia')
+                ->expectsOutputToContain('does not exist')
+                ->assertExitCode(1);
+
+            $this->assertFileDoesNotExist($package . '/tests/Pest.php');
+            $this->assertFileDoesNotExist($this->app->basePath('tests/Pest.php'));
+        } finally {
+            if (is_string($previous)) {
+                chdir($previous);
+            }
+        }
+    }
+
+    public function test_tia_appends_to_the_working_directory_when_testbench_base_path_is_a_skeleton(): void
+    {
+        $package = Fixture::tempDir();
+        $this->cleanup[] = $package;
+        mkdir($package . '/tests');
+        $pest = $package . '/tests/Pest.php';
+        file_put_contents($pest, "<?php\n\npest()->extend(TestCase::class);\n");
+        $previous = getcwd();
+        chdir($package);
+
+        try {
+            $this->artisan('slipway:tia', ['--filtered' => true, '--directory' => '.pest/tia'])
+                ->expectsOutputToContain('Updated')
+                ->assertExitCode(0);
+
+            $contents = (string) file_get_contents($pest);
+            $this->assertStringContainsString('pest()->extend(TestCase::class);', $contents);
+            $this->assertStringContainsString('pest()->tia()->locally()->baselined()->filtered()->directory(\'.pest/tia\');', $contents);
+            $this->assertFileDoesNotExist($this->app->basePath('tests/Pest.php'));
+
+            $this->artisan('slipway:tia')
+                ->expectsOutputToContain('already calls')
+                ->assertExitCode(0);
+        } finally {
+            if (is_string($previous)) {
+                chdir($previous);
+            }
+        }
+    }
+
+    public function test_tia_ignores_comments_and_unrelated_tia_calls(): void
+    {
+        $package = Fixture::tempDir();
+        $this->cleanup[] = $package;
+        mkdir($package . '/tests');
+        $pest = $package . '/tests/Pest.php';
+        file_put_contents($pest, <<<'PHP'
+<?php
+
+// pest()->tia()->locally()
+/** @see pest()->tia() */
+$runner = new stdClass();
+$runner->tia('skip');
+
+pest()->extend(TestCase::class);
+PHP);
+        $previous = getcwd();
+        chdir($package);
+
+        try {
+            $this->artisan('slipway:tia')
+                ->expectsOutputToContain('Updated')
+                ->assertExitCode(0);
+
+            $contents = (string) file_get_contents($pest);
+            $this->assertStringContainsString('pest()->tia()->locally()->baselined();', $contents);
+            $this->assertSame(1, preg_match_all('/pest\(\)->tia\(\)->locally\(\)->baselined\(\);/', $contents));
+            $this->assertFileDoesNotExist($this->app->basePath('tests/Pest.php'));
+        } finally {
+            if (is_string($previous)) {
+                chdir($previous);
+            }
+        }
+    }
+
+    public function test_tia_rejects_a_path_outside_the_project(): void
+    {
+        $this->artisan('slipway:tia', ['--path' => '../Pest.php'])->assertExitCode(1);
     }
 
     public function test_commands_explain_how_to_get_started_when_there_is_no_configuration(): void
