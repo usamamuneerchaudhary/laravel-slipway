@@ -217,4 +217,52 @@ final class CircleCiDriverTest extends TestCase
         $this->assertStringContainsString('CircleCI: Path filters is not supported', $warnings);
         $this->assertStringContainsString('CircleCI: Scheduled runs is only partially supported', $warnings);
     }
+
+    public function test_bun_cache_key_checksums_only_bun_lock_when_bun_lockb_is_absent(): void
+    {
+        $root = Fixture::tempDir();
+        file_put_contents($root . '/bun.lock', "{}\n");
+
+        try {
+            $result = Fixture::compile(Fixture::minimal([
+                'drivers' => ['circleci' => true],
+                'bun' => '1.2.21',
+                'stages' => ['build' => ['build-assets' => ['preset' => 'bun']]],
+            ]), $root);
+        } finally {
+            Fixture::remove($root);
+        }
+
+        $yaml = $result->files['circleci']->contents;
+        $bun = null;
+        foreach ($result->pipeline->job('build')->caches as $cache) {
+            if ($cache->name === 'bun') {
+                $bun = $cache;
+            }
+        }
+
+        $this->assertNotNull($bun);
+        $this->assertSame(['bun.lock'], $bun->keyFiles);
+        $this->assertStringContainsString('{{ checksum "bun.lock" }}', $yaml);
+        $this->assertStringNotContainsString('bun.lockb', $yaml);
+    }
+
+    public function test_bun_cache_key_checksums_only_bun_lockb_when_that_is_the_lockfile(): void
+    {
+        $root = Fixture::tempDir();
+        file_put_contents($root . '/bun.lockb', 'binary');
+
+        try {
+            $yaml = Fixture::compile(Fixture::minimal([
+                'drivers' => ['circleci' => true],
+                'bun' => '1.2.21',
+                'stages' => ['build' => ['build-assets' => ['preset' => 'bun']]],
+            ]), $root)->files['circleci']->contents;
+        } finally {
+            Fixture::remove($root);
+        }
+
+        $this->assertStringContainsString('{{ checksum "bun.lockb" }}', $yaml);
+        $this->assertDoesNotMatchRegularExpression('/checksum "bun\.lock"/', $yaml);
+    }
 }
