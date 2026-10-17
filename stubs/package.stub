@@ -11,6 +11,7 @@
 |   vendor/bin/testbench slipway:compile
 |   vendor/bin/testbench slipway:check
 |   vendor/bin/testbench slipway:test-pipeline   write ci-local.sh and run a stage in Docker
+|   vendor/bin/testbench slipway:tia             add pest()->tia() to an existing tests/Pest.php
 |
 | Testbench must discover Slipway's service provider: add this to composer.json "scripts":
 |   "post-autoload-dump": ["@php vendor/bin/testbench package:discover --ansi"]
