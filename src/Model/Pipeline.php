@@ -25,6 +25,7 @@ final class Pipeline
         public readonly array $declaredSecrets = [],
         public readonly bool $cancelSuperseded = true,
         public readonly array $notifications = [],
+        public readonly ?TiaBaseline $tia = null,
     ) {
     }
 
