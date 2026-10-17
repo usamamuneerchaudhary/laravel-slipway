@@ -115,12 +115,112 @@ final class LocalPipelineScriptTest extends TestCase
         $this->assertSame(0, $code, implode("\n", $output));
     }
 
+    public function test_a_dirty_working_tree_is_warned_about_and_does_not_fail_the_script(): void
+    {
+        $script = $this->script($this->bitbucketConfig());
+
+        $this->assertStringContainsString('status --porcelain', $script);
+        $this->assertStringContainsString('uncommitted or untracked files', $script);
+        $this->assertStringContainsString('Pass --clean to run against HEAD', $script);
+        $this->assertLessThan(strpos($script, 'if ! docker info'), strpos($script, 'status --porcelain'));
+    }
+
+    public function test_clean_uses_a_detached_worktree_and_keeps_secrets_on_the_project_root(): void
+    {
+        $script = $this->script($this->bitbucketConfig());
+
+        $this->assertStringContainsString('--clean', $script);
+        $this->assertStringContainsString('worktree add --detach', $script);
+        $this->assertStringContainsString('worktree remove --force', $script);
+        $this->assertStringContainsString('worktree prune', $script);
+        $this->assertStringContainsString('-v "$SOURCE":/src:ro', $script);
+        $this->assertStringContainsString('grep -E "^${name}=" "$ROOT/.env"', $script);
+        $this->assertStringContainsString('this directory has no git HEAD', $script);
+        $this->assertStringContainsString('Running against detached HEAD', $script);
+    }
+
+    public function test_clean_prunes_a_worktree_when_remove_fails_and_the_directory_is_deleted(): void
+    {
+        $git = trim((string) shell_exec('command -v git'));
+        if ($git === '' || ! is_executable($git)) {
+            $this->markTestSkipped('git is not available.');
+        }
+
+        $root = Fixture::tempDir();
+        $bin = Fixture::tempDir();
+        $worktree = $root . '-wt';
+        $job = tempnam(sys_get_temp_dir(), 'slipway-job');
+        $secrets = tempnam(sys_get_temp_dir(), 'slipway-secrets');
+
+        try {
+            $this->git($git, $root, 'init -q');
+            $this->git($git, $root, 'config user.email test@example.com');
+            $this->git($git, $root, 'config user.name Slipway');
+            file_put_contents($root . '/README.md', "x\n");
+            $this->git($git, $root, 'add README.md');
+            $this->git($git, $root, '-c commit.gpgsign=false commit -qm init');
+            $this->git($git, $root, 'worktree add --detach ' . escapeshellarg($worktree) . ' HEAD');
+            $this->assertDirectoryExists($worktree);
+
+            file_put_contents($bin . '/git', "#!/bin/sh\n"
+                . 'if [ "$1" = "-C" ] && [ "$3" = "worktree" ] && [ "$4" = "remove" ]; then exit 1; fi' . "\n"
+                . 'exec ' . escapeshellarg($git) . ' "$@"' . "\n");
+            chmod($bin . '/git', 0755);
+
+            $body = $this->cleanupBody($this->script($this->bitbucketConfig()));
+            $wrapper = 'set -u' . "\n"
+                . 'ROOT=' . escapeshellarg($root) . "\n"
+                . 'WORKTREE=' . escapeshellarg($worktree) . "\n"
+                . 'JOB_SCRIPT=' . escapeshellarg((string) $job) . "\n"
+                . 'SECRETS_ENV=' . escapeshellarg((string) $secrets) . "\n"
+                . 'export PATH=' . escapeshellarg($bin) . ':"$PATH"' . "\n"
+                . "reset_runtime() { :; }\n"
+                . "cleanup() {\n" . $body . "}\n"
+                . "cleanup\n";
+
+            $file = tempnam(sys_get_temp_dir(), 'slipway-cleanup');
+            file_put_contents((string) $file, $wrapper);
+            exec('bash ' . escapeshellarg((string) $file) . ' 2>&1', $output, $code);
+            unlink((string) $file);
+
+            $this->assertSame(0, $code, implode("\n", $output));
+            $this->assertDirectoryDoesNotExist($worktree);
+            $this->assertStringNotContainsString($worktree, $this->git($git, $root, 'worktree list --porcelain'));
+        } finally {
+            exec(escapeshellarg($git) . ' -C ' . escapeshellarg($root) . ' worktree prune >/dev/null 2>&1');
+            Fixture::remove($worktree);
+            Fixture::remove($root);
+            Fixture::remove($bin);
+            if (is_string($job) && is_file($job)) {
+                unlink($job);
+            }
+            if (is_string($secrets) && is_file($secrets)) {
+                unlink($secrets);
+            }
+        }
+    }
+
     public function test_an_unknown_default_stage_is_rejected(): void
     {
         $this->expectException(InvalidArgumentException::class);
         $this->expectExceptionMessage('stage [deploy]');
 
         $this->script($this->bitbucketConfig(), 'bitbucket', ['defaultStage' => 'deploy']);
+    }
+
+    private function cleanupBody(string $script): string
+    {
+        $this->assertSame(1, preg_match('/^cleanup\(\) \{\n(?<body>(?:  .*\n)*)\}/m', $script, $match));
+
+        return $match['body'];
+    }
+
+    private function git(string $git, string $repo, string $args): string
+    {
+        exec(escapeshellarg($git) . ' -C ' . escapeshellarg($repo) . ' ' . $args . ' 2>&1', $output, $code);
+        $this->assertSame(0, $code, implode("\n", $output));
+
+        return implode("\n", $output);
     }
 
     /**
