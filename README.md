@@ -25,11 +25,12 @@ a workflow by hand (or forgets to regenerate it), CI fails.
 return [
     'drivers' => ['github' => true, 'gitlab' => true],
     'php'     => ['8.3', '8.4'],
+    'node'    => '22',
 
     'stages' => [
         'quality' => ['pint', 'larastan', 'composer-audit', 'secret-scan'],
         'test'    => ['matrix' => true, 'steps' => ['pest' => ['services' => ['mysql']]]],
-        'build'   => ['build-artifact'],
+        'build'   => ['build-assets' => ['preset' => 'vite'], 'sentry' => ['org' => 'acme', 'project' => 'web'], 'build-artifact'],
     ],
 
     'environments' => [
@@ -40,7 +41,7 @@ return [
     ],
 
     'policies' => ['tests-before-deploy', 'approval-for-production', 'rollback-for-production'],
-    'secrets'  => ['SSH_PRIVATE_KEY', 'SSH_KNOWN_HOSTS', 'STAGING_URL', 'PRODUCTION_URL'],
+    'secrets'  => ['SSH_PRIVATE_KEY', 'SSH_KNOWN_HOSTS', 'STAGING_URL', 'PRODUCTION_URL', 'SENTRY_AUTH_TOKEN'],
 ];
 ```
 
@@ -48,6 +49,7 @@ return [
 php artisan slipway:compile          # writes .github/workflows/slipway.yml and .gitlab-ci.yml
 php artisan slipway:check            # fails if the committed YAML is stale (CI runs this for you)
 php artisan slipway:test-pipeline    # writes ./ci-local.sh and runs a stage locally in Docker
+php artisan slipway:tia              # add pest()->tia()->locally()->baselined() to an existing tests/Pest.php
 ```
 
 ## Why
