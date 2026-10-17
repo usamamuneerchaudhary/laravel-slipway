@@ -35,6 +35,7 @@ use Usamamuneerchaudhary\Slipway\Steps\PhpUnit;
 use Usamamuneerchaudhary\Slipway\Steps\Pint;
 use Usamamuneerchaudhary\Slipway\Steps\Rector;
 use Usamamuneerchaudhary\Slipway\Steps\SecretScan;
+use Usamamuneerchaudhary\Slipway\Steps\Sentry;
 use Usamamuneerchaudhary\Slipway\Support\Registry;
 
 /**
@@ -45,7 +46,7 @@ use Usamamuneerchaudhary\Slipway\Support\Registry;
  */
 final class Slipway
 {
-    public const string VERSION = '1.7';
+    public const string VERSION = '1.8';
 
     /** @param (callable(class-string):object)|null $resolver Container `make`, for DI into user classes. */
     public static function steps(?callable $resolver = null): Registry
@@ -67,6 +68,7 @@ final class Slipway
             'infection' => Infection::class,
             'build-assets' => BuildAssets::class,
             'build-artifact' => BuildArtifact::class,
+            'sentry' => Sentry::class,
         ] as $alias => $class) {
             $r->register($alias, static fn (): object => new $class());
         }
