@@ -22,6 +22,7 @@ use Usamamuneerchaudhary\Slipway\Steps\PhpUnit;
 use Usamamuneerchaudhary\Slipway\Steps\Pint;
 use Usamamuneerchaudhary\Slipway\Steps\Rector;
 use Usamamuneerchaudhary\Slipway\Steps\SecretScan;
+use Usamamuneerchaudhary\Slipway\Steps\Sentry;
 use Usamamuneerchaudhary\Slipway\Tests\Support\Fixture;
 use Usamamuneerchaudhary\Slipway\Tests\Support\ShellHarness;
 
@@ -86,6 +87,27 @@ final class StepsTest extends TestCase
         $this->assertStringContainsString('vendor/bin/pest --parallel --coverage --min=80 --testsuite=Unit', $cmd);
     }
 
+    public function test_pest_tia_does_not_change_the_test_command(): void
+    {
+        $c = (new Pest())->contribute(['tia' => true, 'parallel' => true]);
+
+        $this->assertSame(['parallel' => true], $c->tia);
+        $this->assertStringContainsString('vendor/bin/pest --parallel', $this->commands($c));
+        $this->assertStringNotContainsString('--tia', $this->commands($c));
+        $this->assertNull((new Pest())->contribute([])->tia);
+        $this->assertNull((new Pest())->contribute(['tia' => false])->tia);
+        $this->assertSame(['parallel' => false], (new Pest())->contribute(['tia' => true])->tia);
+        $this->assertSame(['php' => '8.4', 'parallel' => false], (new Pest())->contribute(['tia' => ['php' => '8.4', 'parallel' => false]])->tia);
+    }
+
+    public function test_pest_tia_options_are_validated(): void
+    {
+        $this->assertRejects('tia.php', static fn () => (new Pest())->contribute(['tia' => ['php' => 'latest']]));
+        $this->assertRejects('tia.schedule', static fn () => (new Pest())->contribute(['tia' => ['schedule' => 'nightly']]));
+        $this->assertRejects('tia.coverage', static fn () => (new Pest())->contribute(['tia' => ['coverage' => 'none']]));
+        $this->assertRejects('tia.filtered', static fn () => (new Pest())->contribute(['tia' => ['filtered' => true]]));
+    }
+
     public function test_pest_prepares_the_laravel_environment_unless_disabled(): void
     {
         $this->assertStringContainsString('cp .env.example .env', $this->commands((new Pest())->contribute([])));
@@ -131,6 +153,45 @@ final class StepsTest extends TestCase
     {
         $this->assertTrue((new NpmAudit())->contribute([])->requiresNode);
         $this->assertTrue((new BuildAssets())->contribute([])->requiresNode);
+        $this->assertStringContainsString('npm ci --no-audit --no-fund', $this->commands((new BuildAssets())->contribute([])));
+        $this->assertStringContainsString('npm run build', $this->commands((new BuildAssets())->contribute([])));
+    }
+
+    public function test_build_assets_vite_and_bun_presets(): void
+    {
+        $vite = (new BuildAssets())->contribute(['preset' => 'vite']);
+        $this->assertTrue($vite->requiresNode);
+        $this->assertFalse($vite->requiresBun);
+        $this->assertStringContainsString('npx vite build', $this->commands($vite));
+        $this->assertStringContainsString('npm run assets', $this->commands((new BuildAssets())->contribute(['preset' => 'vite', 'script' => 'assets'])));
+
+        $bun = (new BuildAssets())->contribute(['preset' => 'bun']);
+        $this->assertTrue($bun->requiresBun);
+        $this->assertFalse($bun->requiresNode);
+        $this->assertStringContainsString('bun install --frozen-lockfile', $this->commands($bun));
+        $this->assertStringContainsString('bun run build', $this->commands($bun));
+        $this->assertRejects('preset', static fn () => (new BuildAssets())->contribute(['preset' => 'yarn']));
+    }
+
+    public function test_sentry_uploads_source_maps_with_a_named_secret(): void
+    {
+        $c = (new Sentry())->contribute(['org' => 'acme', 'project' => 'web']);
+
+        $this->assertSame(['SENTRY_AUTH_TOKEN'], $c->steps[0]->secrets);
+        $this->assertSame('acme', $c->steps[0]->env['SENTRY_ORG']);
+        $this->assertSame('web', $c->steps[0]->env['SENTRY_PROJECT']);
+        $this->assertStringContainsString('sourcemaps inject --release "$SENTRY_RELEASE" public/build', $this->commands($c));
+        $this->assertStringContainsString('sourcemaps upload --release "$SENTRY_RELEASE" public/build', $this->commands($c));
+        $this->assertStringContainsString('GITHUB_SHA', $this->commands($c));
+        $this->assertStringContainsString('CI_COMMIT_SHA', $this->commands($c));
+        $this->assertStringContainsString('BITBUCKET_COMMIT', $this->commands($c));
+        $this->assertStringContainsString('CIRCLE_SHA1', $this->commands($c));
+        $this->assertStringContainsString('git rev-parse HEAD', $this->commands($c));
+        $this->assertStringContainsString('Add @sentry/cli to the lockfile', $this->commands($c));
+        $this->assertSame(['SENTRY_TOKEN'], (new Sentry())->contribute(['org' => 'acme', 'project' => 'web', 'token' => 'SENTRY_TOKEN'])->steps[0]->secrets);
+        $this->assertRejects('org', static fn () => (new Sentry())->contribute(['project' => 'web']));
+        $this->assertRejects('token', static fn () => (new Sentry())->contribute(['org' => 'acme', 'project' => 'web', 'token' => 'not-a-secret']));
+        $this->assertRejects('path', static fn () => (new Sentry())->contribute(['org' => 'acme', 'project' => 'web', 'path' => 'dist; rm -rf /']));
     }
 
     public function test_npm_audit_level_is_validated(): void

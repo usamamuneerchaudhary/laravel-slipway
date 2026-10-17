@@ -68,6 +68,50 @@ final class CompilerTest extends TestCase
         $this->assertStringContainsString('slipway:compile', $contents);
     }
 
+    public function test_pest_tia_writes_a_github_baseline_workflow_without_changing_the_test_job(): void
+    {
+        $result = Fixture::compile(Fixture::minimal([
+            'php' => ['8.3', '8.4'],
+            'stages' => ['test' => ['pest' => ['tia' => true]]],
+        ]));
+
+        $this->assertArrayHasKey('tia-baseline', $result->files);
+        $this->assertSame('.github/workflows/tia-baseline.yml', $result->files['tia-baseline']->path);
+        $tia = $result->files['tia-baseline']->contents;
+        $this->assertStringContainsString('name: TIA Baseline', $tia);
+        $this->assertStringContainsString('pest-tia-baseline', $tia);
+        $this->assertStringContainsString('include-hidden-files: true', $tia);
+        $this->assertStringContainsString('vendor/bin/pest --tia --coverage --fresh', $tia);
+        $this->assertStringNotContainsString('--parallel', $tia);
+        $this->assertStringContainsString('php-version: "8.4"', $tia);
+        $this->assertStringContainsString('coverage: xdebug', $tia);
+        $this->assertStringContainsString('fetch-depth: 0', $tia);
+        $this->assertStringNotContainsString('--tia', $result->files['github']->contents);
+        $this->assertStringContainsString('vendor/bin/pest', $result->files['github']->contents);
+    }
+
+    public function test_pest_tia_without_github_warns_and_writes_no_baseline_file(): void
+    {
+        $result = Fixture::compile(Fixture::minimal([
+            'drivers' => ['gitlab' => true],
+            'stages' => ['test' => ['pest' => ['tia' => true]]],
+        ]));
+
+        $this->assertArrayNotHasKey('tia-baseline', $result->files);
+        $this->assertStringContainsString('GitHub-only', implode("\n", $result->warnings));
+    }
+
+    public function test_conflicting_pest_tia_options_fail_compilation(): void
+    {
+        $this->assertStringContainsString('tia', $this->errorsOf(Fixture::minimal([
+            'php' => ['8.3', '8.4'],
+            'stages' => [
+                'unit' => ['pest' => ['tia' => true]],
+                'browser' => ['pest' => ['tia' => ['php' => '8.3']]],
+            ],
+        ])));
+    }
+
     public function test_the_package_version_never_appears_in_generated_output(): void
     {
         foreach (Fixture::compile(Fixture::full())->files as $file) {
@@ -300,5 +344,49 @@ final class CompilerTest extends TestCase
         $this->expectExceptionMessage('outside the project');
 
         $compiler->write($evil, $this->dir);
+    }
+
+    public function test_pest_tia_baseline_parallel_follows_the_pest_step(): void
+    {
+        $following = Fixture::compile(Fixture::minimal([
+            'stages' => ['test' => ['pest' => ['parallel' => true, 'tia' => true]]],
+        ]));
+
+        $this->assertStringContainsString(
+            'vendor/bin/pest --parallel --tia --coverage --fresh',
+            $following->files['tia-baseline']->contents,
+        );
+        $this->assertStringNotContainsString('tia.parallel', implode("\n", $following->warnings));
+
+        $explicit = Fixture::compile(Fixture::minimal([
+            'stages' => ['test' => ['pest' => ['tia' => ['parallel' => true]]]],
+        ]));
+
+        $this->assertStringContainsString(
+            'vendor/bin/pest --parallel --tia --coverage --fresh',
+            $explicit->files['tia-baseline']->contents,
+        );
+        $this->assertStringContainsString('No Pest step in this pipeline does', implode("\n", $explicit->warnings));
+    }
+
+    public function test_vite_preset_without_a_script_warns_that_it_runs_npx_vite_build(): void
+    {
+        $result = Fixture::compile(Fixture::minimal([
+            'node' => '22',
+            'stages' => ['build' => ['build-assets' => ['preset' => 'vite']]],
+        ]));
+
+        $warnings = implode("\n", $result->warnings);
+        $this->assertStringContainsString('npx vite build', $warnings);
+        $this->assertStringContainsString('package.json script', $warnings);
+        $this->assertStringContainsString('npx vite build', $result->files['github']->contents);
+
+        $scripted = Fixture::compile(Fixture::minimal([
+            'node' => '22',
+            'stages' => ['build' => ['build-assets' => ['preset' => 'vite', 'script' => 'assets']]],
+        ]));
+
+        $this->assertStringNotContainsString('npx vite build', implode("\n", $scripted->warnings));
+        $this->assertStringContainsString('npm run assets', $scripted->files['github']->contents);
     }
 }
