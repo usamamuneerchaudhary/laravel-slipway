@@ -171,6 +171,22 @@ final class GitHubDriverTest extends TestCase
         $this->assertStringContainsString('runs-on: self-hosted', $yaml);
     }
 
+    public function test_bun_is_installed_from_the_verified_release_zip(): void
+    {
+        $yaml = $this->yaml(Fixture::minimal([
+            'bun' => '1.2.21',
+            'stages' => ['build' => ['build-assets' => ['preset' => 'bun']]],
+        ]));
+
+        $this->assertStringContainsString('Set up Bun', $yaml);
+        $this->assertStringContainsString('bun-v1.2.21', $yaml);
+        $this->assertStringContainsString('SHASUMS256.txt', $yaml);
+        $this->assertStringContainsString('GITHUB_PATH', $yaml);
+        $this->assertStringContainsString('${HOME}/.bun/bin', $yaml);
+        $this->assertStringNotContainsString('/usr/local/bin/bun', $yaml);
+        $this->assertStringContainsString('bun install --frozen-lockfile', $yaml);
+    }
+
     public function test_unknown_driver_options_are_rejected(): void
     {
         $this->expectException(ConfigException::class);
