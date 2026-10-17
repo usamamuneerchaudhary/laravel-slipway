@@ -27,16 +27,30 @@ final class PinCommand extends SlipwayCommand
             return self::FAILURE;
         }
 
-        $github = $result->files['github'] ?? null;
-        if ($github === null) {
+        if (! isset($result->files['github'])) {
             $this->error('The GitHub driver is not enabled, so there are no actions to pin.');
 
             return self::FAILURE;
         }
 
-        $unpinned = ActionPins::unpinned($github->contents);
+        $workflows = [];
+        foreach (['github', 'tia-baseline'] as $name) {
+            $file = $result->files[$name] ?? null;
+            if ($file !== null) {
+                $workflows[$file->path] = $file->contents;
+            }
+        }
+
+        $unpinned = [];
+        foreach ($workflows as $contents) {
+            foreach (ActionPins::unpinned($contents) as $action => $ref) {
+                $unpinned[$action] = $ref;
+            }
+        }
+        ksort($unpinned);
+
         if ($unpinned === []) {
-            $this->info('Every action in ' . $github->path . ' is already pinned to a commit SHA.');
+            $this->info('Every action in ' . implode(' and ', array_keys($workflows)) . ' is already pinned to a commit SHA.');
 
             return self::SUCCESS;
         }
