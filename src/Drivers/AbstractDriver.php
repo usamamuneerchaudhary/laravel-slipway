@@ -143,6 +143,7 @@ abstract class AbstractDriver implements Driver
         } elseif ($hasPhp) {
             $lines = [PhpBootstrap::script($job->extensions, $job->coverage, PhpBootstrap::aptPackagesFor($job->tools))];
             $job->node !== null && $lines[] = $this->nodeInstall($job->node);
+            $job->bun !== null && $lines[] = $this->bunInstall($job->bun);
         } elseif ($job->tools !== []) {
             $lines = [PhpBootstrap::alpineScript($job->tools)];
         } else {
@@ -172,6 +173,17 @@ abstract class AbstractDriver implements Driver
     protected function nodeInstall(string $version): string
     {
         return PhpBootstrap::nodeInstall($version);
+    }
+
+    protected function bunInstall(string $version): string
+    {
+        return PhpBootstrap::bunInstall($version);
+    }
+
+    /** Node and Bun caches are keyed on lockfiles, not the PHP version. */
+    protected function cacheKeyedByPhp(string $name): bool
+    {
+        return ! in_array($name, ['node', 'bun'], true);
     }
 
     /** @param array<string,string> $env */

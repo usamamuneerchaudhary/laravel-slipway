@@ -228,7 +228,7 @@ final class BitbucketDriver extends AbstractDriver
         // Caches: one definition per (cache, PHP version) so versions never share vendor/.
         $names = [];
         foreach ($job->caches as $cache) {
-            $name = $cache->name === 'node' || $php === null ? $cache->name : $cache->name . '-php' . str_replace('.', '', $php);
+            $name = ! $this->cacheKeyedByPhp($cache->name) || $php === null ? $cache->name : $cache->name . '-php' . str_replace('.', '', $php);
             $ctx['caches'][$name] = ['key' => ['files' => $cache->keyFiles], 'path' => $this->bareDir($cache->paths[0])];
             $names[] = $name;
         }

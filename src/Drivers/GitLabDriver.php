@@ -187,7 +187,7 @@ final class GitLabDriver extends AbstractDriver
 
         $caches = [];
         foreach ($job->caches as $cache) {
-            $prefix = $cache->name === 'node' || ! $hasPhp
+            $prefix = ! $this->cacheKeyedByPhp($cache->name) || ! $hasPhp
                 ? $cache->name
                 : $cache->name . '-php' . ($job->isMatrix() ? '$PHP_VERSION' : $job->phpVersions[0]);
             $caches[] = ['key' => ['files' => $cache->keyFiles, 'prefix' => $prefix], 'paths' => $cache->paths];

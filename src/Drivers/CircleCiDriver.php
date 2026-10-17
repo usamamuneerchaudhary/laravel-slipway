@@ -271,7 +271,7 @@ SH;
     {
         $key = 'v1-' . $name;
 
-        if ($name !== 'node' && $hasPhp && $php !== null) {
+        if ($this->cacheKeyedByPhp($name) && $hasPhp && $php !== null) {
             $key .= '-php' . $php;
         }
 
