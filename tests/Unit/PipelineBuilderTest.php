@@ -251,6 +251,22 @@ final class PipelineBuilderTest extends TestCase
         $this->assertCompileFails('"node" is not set', Fixture::minimal(['node' => null, 'stages' => ['build' => ['build-assets']]]));
     }
 
+    public function test_bun_steps_require_a_bun_version(): void
+    {
+        $this->assertCompileFails('"bun" is not set', Fixture::minimal(['stages' => ['build' => ['build-assets' => ['preset' => 'bun']]]]));
+    }
+
+    public function test_a_bun_build_records_the_runtime_on_the_job(): void
+    {
+        $jobs = $this->jobsById($this->pipeline(Fixture::minimal([
+            'bun' => '1.2.21',
+            'stages' => ['build' => ['build-assets' => ['preset' => 'bun']]],
+        ])));
+
+        $this->assertSame('1.2.21', $jobs['build']->bun);
+        $this->assertNull($jobs['build']->node);
+    }
+
     public function test_stage_events_must_be_enabled_triggers(): void
     {
         $this->assertCompileFails('event [schedule] is not enabled', Fixture::minimal(['stages' => ['test' => ['on' => ['schedule'], 'steps' => ['pest']]]]));

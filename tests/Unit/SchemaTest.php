@@ -67,6 +67,15 @@ final class SchemaTest extends TestCase
         $this->assertHasError('non-empty list', Fixture::minimal(['php' => []]));
     }
 
+    public function test_bun_must_be_an_exact_version(): void
+    {
+        $n = (new Schema())->normalize(Fixture::minimal(['bun' => '1.2.21']));
+        $this->assertSame('1.2.21', $n['bun']);
+        $this->assertNull((new Schema())->normalize(Fixture::minimal())['bun']);
+        $this->assertHasError('exact version', Fixture::minimal(['bun' => '1.2']));
+        $this->assertHasError('exact version', Fixture::minimal(['bun' => 'latest']));
+    }
+
     public function test_stages_are_required(): void
     {
         $this->assertHasError('stages: required', Fixture::minimal(['stages' => []]));
