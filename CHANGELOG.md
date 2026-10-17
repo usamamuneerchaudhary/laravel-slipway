@@ -3,6 +3,34 @@
 All notable changes are documented here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 and the project follows [Semantic Versioning](https://semver.org/).
 
+## [1.8] - 2026-10-17
+
+### Added
+
+- Local runs warn when `git status --porcelain` is not empty. `slipway:test-pipeline --clean` and
+  `./ci-local.sh --clean` clone `HEAD` into a detached worktree so uncommitted files cannot produce
+  a false pass. Secrets still come from the project's `.env`.
+- Pest TIA: `'pest' => ['tia' => true]` writes `.github/workflows/tia-baseline.yml` (GitHub only)
+  following [Pest's TIA workflow](https://pestphp.com/docs/tia). The pull-request test command stays
+  a full suite. `php artisan slipway:tia` adds `pest()->tia()->locally()->baselined()` to
+  `tests/Pest.php`. Removing `tia` does not delete an already committed baseline workflow; delete
+  `.github/workflows/tia-baseline.yml` yourself.
+- `build-assets` presets: `npm` (default), `vite`, and `bun`. Bun needs `'bun' => '1.2.21'` (exact
+  version) and is installed from GitHub Releases after checksum verification.
+- Step `sentry`: injects and uploads source maps with the locked `@sentry/cli` (`org`, `project`,
+  optional `path` and `token`). Put it after `build-assets` in the same stage.
+
+### Fixed
+
+- CircleCI Bun caches are keyed on the one lockfile that exists (`bun.lock` or `bun.lockb`). Checksum of a missing file was failing the job before `bun install`.
+- GitHub Bun setup installs into `$HOME/.bun/bin` and appends that directory to `$GITHUB_PATH`. The root install into `/usr/local/bin` stays in container jobs.
+- `slipway:tia` writes into the package working directory under Testbench, appends only to an existing Pest file, and ignores comments and unrelated `->tia(` calls.
+- `slipway:pin` also reads `.github/workflows/tia-baseline.yml`.
+- A Pest TIA baseline uses `--parallel` when the Pest step does. An explicit `tia.parallel` that the Pest step does not use is a compile warning.
+- `build-assets` preset `vite` without `script` warns that the step runs `npx vite build`.
+- Sentry source-map upload sets `--release` from `SENTRY_RELEASE` or the CI commit SHA.
+- `./ci-local.sh --clean` prunes a worktree registration when `git worktree remove` fails. A dirty-tree warning is printed before the Docker check.
+
 ## [1.7] - 2026-10-12
 
 ### Added
