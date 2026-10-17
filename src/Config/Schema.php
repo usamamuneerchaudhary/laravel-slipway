@@ -25,7 +25,7 @@ final class Schema
     ];
 
     private const array TOP_KEYS = [
-        'name', 'strict', 'guard', 'lockfile', 'artisan', 'drivers', 'php', 'extensions', 'node', 'triggers', 'concurrency', 'timeouts',
+        'name', 'strict', 'guard', 'lockfile', 'artisan', 'drivers', 'php', 'extensions', 'node', 'bun', 'triggers', 'concurrency', 'timeouts',
         'cache', 'env', 'stages', 'environments', 'artifact', 'policies', 'secrets', 'notifications', 'scan',
     ];
 
@@ -61,6 +61,7 @@ final class Schema
             'php' => $this->phpVersions($config['php'] ?? ['8.3'], 'php'),
             'extensions' => $this->stringList($config['extensions'] ?? self::DEFAULT_EXTENSIONS, 'extensions'),
             'node' => $this->node($config['node'] ?? null),
+            'bun' => $this->bun($config['bun'] ?? null),
             'triggers' => $this->triggers($config['triggers'] ?? []),
             'concurrency' => ['cancel_superseded' => $this->nestedBool($config, 'concurrency', 'cancel_superseded', true)],
             'timeouts' => ['default' => $this->timeout($config['timeouts']['default'] ?? 20, 'timeouts.default')],
@@ -202,6 +203,21 @@ final class Schema
 
         if (! is_string($value) || preg_match('/^\d+(\.\d+){0,2}$/D', $value) !== 1) {
             $this->errors[] = 'node: must be null or a version such as "22".';
+
+            return null;
+        }
+
+        return $value;
+    }
+
+    private function bun(mixed $value): ?string
+    {
+        if ($value === null || $value === false) {
+            return null;
+        }
+
+        if (! is_string($value) || preg_match('/^\d+\.\d+\.\d+$/D', $value) !== 1) {
+            $this->errors[] = 'bun: must be null or an exact version such as "1.2.21".';
 
             return null;
         }

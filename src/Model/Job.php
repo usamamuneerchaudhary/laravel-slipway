@@ -13,6 +13,7 @@ final class Job
     /**
      * @param list<string>          $needs         Job ids that must finish first.
      * @param list<string>          $phpVersions   Empty = this job needs no PHP runtime.
+     * @param string|null           $bun           Exact Bun version when a step needs Bun.
      * @param list<string>          $extensions
      * @param list<string>          $tools         CLI tools needed on shell-only jobs (curl, ssh, rsync, git).
      * @param list<Service>         $services
@@ -33,6 +34,7 @@ final class Job
         public readonly array $extensions = [],
         public readonly ?string $coverage = null,
         public readonly ?string $node = null,
+        public readonly ?string $bun = null,
         public readonly array $tools = [],
         public readonly array $services = [],
         public readonly array $caches = [],
