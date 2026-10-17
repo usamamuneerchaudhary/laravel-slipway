@@ -39,7 +39,7 @@ abstract class SlipwayCommand extends Command
     protected function compile(Compiler $compiler, array $located, bool $showWarnings = true): ?CompileResult
     {
         try {
-            $result = $compiler->compile($located['config'], $located['source']);
+            $result = $compiler->compile($located['config'], $located['source'], $located['root']);
         } catch (ConfigException $e) {
             $this->error('Slipway configuration is invalid (' . $located['source'] . '):');
             foreach ($e->errors as $message) {

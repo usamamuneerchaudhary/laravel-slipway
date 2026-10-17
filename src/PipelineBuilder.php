@@ -16,6 +16,7 @@ use Usamamuneerchaudhary\Slipway\Model\Environment;
 use Usamamuneerchaudhary\Slipway\Model\Job;
 use Usamamuneerchaudhary\Slipway\Model\Pipeline;
 use Usamamuneerchaudhary\Slipway\Model\Step;
+use Usamamuneerchaudhary\Slipway\Model\TiaBaseline;
 use Usamamuneerchaudhary\Slipway\Model\Triggers;
 use Usamamuneerchaudhary\Slipway\Steps\BuildArtifact;
 use Usamamuneerchaudhary\Slipway\Support\NotificationScript;
@@ -33,6 +34,14 @@ final class PipelineBuilder
     /** @var list<string> */
     private array $errors = [];
 
+    /** @var list<array{php?:string,schedule?:string,coverage?:string,parallel?:bool}> */
+    private array $tiaSpecs = [];
+
+    /** @var list<string> */
+    private array $warnings = [];
+
+    private ?string $root = null;
+
     public function __construct(
         private readonly Registry $steps,
         private readonly Registry $deployers,
@@ -41,11 +50,15 @@ final class PipelineBuilder
 
     /**
      * @param array<string,mixed> $config Output of Config\Schema::normalize().
+     * @param string|null         $root   Project root, used to see which Bun lockfile exists.
      * @throws ConfigException
      */
-    public function build(array $config): Pipeline
+    public function build(array $config, ?string $root = null): Pipeline
     {
         $this->errors = [];
+        $this->warnings = [];
+        $this->tiaSpecs = [];
+        $this->root = $root;
 
         $triggers = new Triggers(
             pushBranches: $config['triggers']['push'],
@@ -106,6 +119,7 @@ final class PipelineBuilder
         }
 
         $jobs = $this->addNotifications($jobs, $config['notifications'], $config['name']);
+        $tia = $this->tiaBaseline($config, $jobs);
 
         if ($this->errors !== []) {
             throw new ConfigException($this->errors);
@@ -119,6 +133,7 @@ final class PipelineBuilder
             declaredSecrets: $config['secrets'],
             cancelSuperseded: $config['concurrency']['cancel_superseded'],
             notifications: $config['notifications'],
+            tia: $tia,
         );
     }
 
@@ -269,6 +284,7 @@ final class PipelineBuilder
         $artifactPaths = [];
         $env = array_merge($config['env'], $options['env']);
         $needsNode = false;
+        $needsBun = false;
         $coverage = null;
         $noDev = false;
 
@@ -278,11 +294,21 @@ final class PipelineBuilder
             $artifactPaths = array_merge($artifactPaths, $c->artifactPaths);
             $env = array_merge($env, $c->env);
             $needsNode = $needsNode || $c->requiresNode;
+            $needsBun = $needsBun || $c->requiresBun;
             $coverage ??= $c->coverage;
             $noDev = $noDev || $c->noDev;
+            if ($c->tia !== null) {
+                $this->tiaSpecs[] = $c->tia;
+            }
         }
 
         $steps = array_map(fn (Step $s): Step => $this->applyTokens($s, $config), $steps);
+
+        foreach ($steps as $step) {
+            if ($step->run === 'npx vite build') {
+                $this->warn('build-assets preset "vite" runs `npx vite build` when script is omitted. Set script to a package.json script name to run that script with npm.');
+            }
+        }
 
         $services = array_values(array_unique($services));
         $artifactPaths = array_values(array_unique($artifactPaths));
@@ -292,6 +318,14 @@ final class PipelineBuilder
             $node = $config['node'];
             if ($node === null) {
                 $this->errors[] = "stages.{$stage}: a step needs Node.js but \"node\" is not set in config (e.g. 'node' => '22').";
+            }
+        }
+
+        $bun = null;
+        if ($needsBun) {
+            $bun = $config['bun'];
+            if ($bun === null) {
+                $this->errors[] = "stages.{$stage}: a step needs Bun but \"bun\" is not set in config (e.g. 'bun' => '1.2.21').";
             }
         }
 
@@ -326,6 +360,9 @@ final class PipelineBuilder
             if ($node !== null) {
                 $caches[] = new CacheDef('node', ['node_modules/'], ['package-lock.json']);
             }
+            if ($bun !== null) {
+                $caches[] = new CacheDef('bun', ['node_modules/'], [$this->bunKeyFile()]);
+            }
         }
 
         $events = $options['on'] ?? ($artifactPaths !== [] ? array_values(array_intersect(['push', 'tag', 'manual'], $enabled)) : $enabled);
@@ -346,6 +383,7 @@ final class PipelineBuilder
             extensions: $options['extensions'] ?? $config['extensions'],
             coverage: $coverage,
             node: $node,
+            bun: $bun,
             tools: [],
             services: $serviceModels,
             caches: $caches,
@@ -583,6 +621,121 @@ final class PipelineBuilder
     private function composerKeyFile(array $config): string
     {
         return $config['lockfile'] ? 'composer.lock' : 'composer.json';
+    }
+
+    /**
+     * Bun projects commit bun.lock or bun.lockb, not both. CircleCI checksum fails when a
+     * key file is missing, so the cache is keyed on the one file that exists.
+     */
+    private function bunKeyFile(): string
+    {
+        $root = $this->root;
+        if ($root === null || $root === '') {
+            return 'bun.lock';
+        }
+
+        $base = rtrim($root, '/\\');
+        $text = is_file($base . '/bun.lock');
+        $binary = is_file($base . '/bun.lockb');
+
+        if ($text && $binary) {
+            $this->warn('Both bun.lock and bun.lockb are present. The Bun cache is keyed on bun.lock so CircleCI does not checksum a second lockfile.');
+
+            return 'bun.lock';
+        }
+
+        if ($binary) {
+            return 'bun.lockb';
+        }
+
+        if (! $text) {
+            $this->warn('No bun.lock or bun.lockb was found. The Bun cache is keyed on bun.lock. CircleCI fails the cache step when that file is missing.');
+        }
+
+        return 'bun.lock';
+    }
+
+    /** @return list<string> */
+    public function warnings(): array
+    {
+        return $this->warnings;
+    }
+
+    private function warn(string $message): void
+    {
+        if (! in_array($message, $this->warnings, true)) {
+            $this->warnings[] = $message;
+        }
+    }
+
+    /**
+     * @param array<string,mixed> $config
+     * @param list<Job>           $jobs
+     */
+    private function tiaBaseline(array $config, array $jobs): ?TiaBaseline
+    {
+        if ($this->tiaSpecs === []) {
+            return null;
+        }
+
+        $baselines = [];
+        foreach ($this->tiaSpecs as $spec) {
+            $baselines[] = $this->makeTia($spec, $config);
+        }
+
+        $fingerprints = array_unique(array_map(static fn (TiaBaseline $tia): string => $tia->fingerprint(), $baselines));
+        if (count($fingerprints) > 1) {
+            $this->errors[] = 'pest: option [tia] is set to different values on more than one step.';
+
+            return null;
+        }
+
+        $baseline = $baselines[0];
+        if ($baseline->parallel && ! $this->pestRunsInParallel($jobs)) {
+            $this->warn('The Pest TIA baseline runs `vendor/bin/pest --parallel`. No Pest step in this pipeline does. Set parallel on the pest step, or set tia.parallel to false.');
+        }
+
+        return $baseline;
+    }
+
+    /** @param list<Job> $jobs */
+    private function pestRunsInParallel(array $jobs): bool
+    {
+        foreach ($jobs as $job) {
+            foreach ($job->steps as $step) {
+                if (! is_string($step->run) || ! str_contains($step->run, 'vendor/bin/pest')) {
+                    continue;
+                }
+
+                if (preg_match('/(^|\s)--parallel(\s|$)/', $step->run) === 1) {
+                    return true;
+                }
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * @param  array{php?:string,schedule?:string,coverage?:string,parallel?:bool}  $spec
+     * @param  array<string,mixed>  $config
+     */
+    private function makeTia(array $spec, array $config): TiaBaseline
+    {
+        /** @var list<string> $phpVersions */
+        $phpVersions = $config['php'];
+        $php = $spec['php'] ?? $phpVersions[array_key_last($phpVersions)];
+        /** @var list<string> $push */
+        $push = $config['triggers']['push'];
+
+        return new TiaBaseline(
+            php: $php,
+            schedule: $spec['schedule'] ?? '0 3 * * *',
+            coverage: $spec['coverage'] ?? 'xdebug',
+            parallel: $spec['parallel'] ?? false,
+            branch: $push[0] ?? 'main',
+            lockfile: $config['lockfile'],
+        );
     }
 
     private function slug(string $text): string

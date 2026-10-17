@@ -71,9 +71,9 @@ final class Fixture
         return Slipway::compiler();
     }
 
-    public static function compile(array $config): CompileResult
+    public static function compile(array $config, ?string $root = null): CompileResult
     {
-        return self::compiler()->compile($config);
+        return self::compiler()->compile($config, root: $root);
     }
 
     /** A temporary directory removed by `remove()`. */

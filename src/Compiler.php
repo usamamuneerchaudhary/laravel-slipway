@@ -10,6 +10,7 @@ use Throwable;
 use Usamamuneerchaudhary\Slipway\Config\ConfigException;
 use Usamamuneerchaudhary\Slipway\Config\Schema;
 use Usamamuneerchaudhary\Slipway\Contracts\Driver;
+use Usamamuneerchaudhary\Slipway\Drivers\GitHubDriver;
 use Usamamuneerchaudhary\Slipway\Model\Pipeline;
 use Usamamuneerchaudhary\Slipway\Model\Support;
 use Usamamuneerchaudhary\Slipway\Policies\PolicyEngine;
@@ -35,10 +36,11 @@ final class Compiler
 
     /**
      * @param array<string,mixed> $config The raw contents of config/slipway.php.
+     * @param string|null         $root   Project root. Bun cache keys are chosen from the lockfile that exists here.
      * @throws ConfigException  Invalid config, policy errors, unsupported features in strict mode,
      *                          or credentials found in the config or generated output.
      */
-    public function compile(array $config, ?string $source = null): CompileResult
+    public function compile(array $config, ?string $source = null, ?string $root = null): CompileResult
     {
         $source ??= $this->source;
         $errors = [];
@@ -50,10 +52,12 @@ final class Compiler
 
         try {
             $normalized = (new Schema())->normalize($config); // throws ConfigException with every schema error
-            $pipeline = $this->builder->build($normalized);   // throws ConfigException with every build error
+            $pipeline = $this->builder->build($normalized, $root); // throws ConfigException with every build error
         } catch (ConfigException $e) {
             throw new ConfigException(array_merge($errors, $e->errors));
         }
+
+        array_push($warnings, ...$this->builder->warnings());
 
         foreach ($this->policies->evaluate($pipeline, $normalized['policies']) as $violation) {
             if ($violation->isError()) {
@@ -108,6 +112,41 @@ final class Compiler
             }
 
             $files[$name] = new GeneratedFile($name, $path, $this->header($driver, $hash, $source, $normalized['artisan']) . $yaml);
+        }
+
+        if ($pipeline->tia !== null) {
+            $githubEnabled = isset($normalized['drivers']['github']) && $normalized['drivers']['github']['enabled'] && $this->drivers->has('github');
+            if ($githubEnabled) {
+                $github = $this->drivers->get('github');
+                if ($github instanceof GitHubDriver) {
+                    try {
+                        $tiaYaml = $github->renderTiaBaseline($pipeline, $normalized['drivers']['github']);
+                        $tiaPath = '.github/workflows/tia-baseline.yml';
+
+                        if ($normalized['strict']) {
+                            $unpinned = ActionPins::unpinned($tiaYaml);
+                            if ($unpinned !== []) {
+                                $warnings[] = 'GitHub Actions (TIA baseline): ' . implode(', ', array_keys($unpinned))
+                                    . ' use mutable version tags instead of commit SHAs. Run "' . $normalized['artisan'] . ' slipway:pin" and add the result to drivers.github.options.pins.';
+                            }
+                        }
+
+                        foreach ($this->scanner->scanString($tiaYaml, $tiaPath) as $finding) {
+                            $errors[] = 'Credential in generated output: ' . $finding;
+                        }
+
+                        $files['tia-baseline'] = new GeneratedFile('tia-baseline', $tiaPath, $this->header($github, $hash, $source, $normalized['artisan']) . $tiaYaml);
+                    } catch (InvalidArgumentException $e) {
+                        $errors[] = 'drivers.github: ' . $e->getMessage();
+                    } catch (Throwable $e) {
+                        $errors[] = 'drivers.github: failed to render TIA baseline (' . $e::class . '): ' . $e->getMessage();
+                    }
+                } else {
+                    $warnings[] = 'Pest TIA baseline workflow is GitHub-only and was not written because the GitHub driver is not available.';
+                }
+            } else {
+                $warnings[] = 'Pest TIA baseline workflow is GitHub-only and was not written because the GitHub driver is not enabled.';
+            }
         }
 
         if ($files === [] && $errors === []) {

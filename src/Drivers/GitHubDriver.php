@@ -81,24 +81,12 @@ final class GitHubDriver extends AbstractDriver
 
     public function render(Pipeline $pipeline, array $options = []): string
     {
-        $o = $options['options'] ?? [];
-        $this->assertOptions($o, ['runner', 'permissions', 'pins']);
+        $o = $this->loadPins($options);
 
         $runner = $this->stringOption($o, 'runner', 'ubuntu-latest');
         $permissions = $o['permissions'] ?? ['contents' => 'read'];
         if (! is_array($permissions)) {
             throw new InvalidArgumentException('github: option [permissions] must be an array such as [\'contents\' => \'read\'].');
-        }
-
-        $this->pins = [];
-        foreach ($o['pins'] ?? [] as $action => $ref) {
-            if (! isset(self::ACTIONS[$action]) || ! is_string($ref) || preg_match('/^[A-Za-z0-9._\/-]+$/D', $ref) !== 1) {
-                throw new InvalidArgumentException(sprintf(
-                    'github: option [pins] must map one of (%s) to a tag or commit SHA.',
-                    implode(', ', array_keys(self::ACTIONS))
-                ));
-            }
-            $this->pins[$action] = $ref;
         }
 
         $workflow = [
@@ -123,6 +111,90 @@ final class GitHubDriver extends AbstractDriver
         $workflow['jobs'] = $jobs;
 
         $workflow = $this->deepMerge($workflow, $options['raw'] ?? []);
+
+        return Yaml::dump($workflow);
+    }
+
+    /**
+     * Separate workflow for Pest TIA baseline recording. The pull-request suite stays a full run.
+     *
+     * @param  array<string,mixed>  $options
+     */
+    public function renderTiaBaseline(Pipeline $pipeline, array $options = []): string
+    {
+        $tia = $pipeline->tia;
+        if ($tia === null) {
+            throw new InvalidArgumentException('github: no Pest TIA baseline to render.');
+        }
+
+        $o = $this->loadPins($options);
+        $runner = $this->stringOption($o, 'runner', 'ubuntu-latest');
+        $permissions = $o['permissions'] ?? ['contents' => 'read'];
+        if (! is_array($permissions)) {
+            throw new InvalidArgumentException('github: option [permissions] must be an array such as [\'contents\' => \'read\'].');
+        }
+
+        $pest = 'vendor/bin/pest';
+        $record = $pest . ($tia->parallel ? ' --parallel' : '') . ' --tia --coverage --fresh';
+        $composer = 'composer install --no-interaction --no-progress --prefer-dist' . ($tia->lockfile ? ' --locked' : '');
+
+        $workflow = [
+            'name' => 'TIA Baseline',
+            'on' => [
+                'push' => ['branches' => [$tia->branch]],
+                'schedule' => [['cron' => $tia->schedule]],
+                'workflow_dispatch' => null,
+            ],
+            'permissions' => $permissions,
+            'jobs' => [
+                'baseline' => [
+                    'name' => 'Pest TIA baseline',
+                    'runs-on' => $runner,
+                    'steps' => [
+                        [
+                            'name' => 'Check out code',
+                            'uses' => $this->action('actions/checkout'),
+                            'with' => [
+                                'persist-credentials' => false,
+                                'fetch-depth' => 0,
+                            ],
+                        ],
+                        [
+                            'name' => 'Set up PHP',
+                            'uses' => $this->action('shivammathur/setup-php'),
+                            'with' => [
+                                'php-version' => $tia->php,
+                                'coverage' => $tia->coverage,
+                                'tools' => 'composer:v2',
+                            ],
+                        ],
+                        [
+                            'name' => 'Install Composer dependencies',
+                            'run' => $composer . "\n",
+                        ],
+                        [
+                            'name' => 'Record TIA baseline',
+                            'run' => $record . "\n",
+                        ],
+                        [
+                            'name' => 'Resolve TIA baseline path',
+                            'id' => 'baseline',
+                            'run' => 'echo "path=$(' . $pest . ' --baseline)" >> "$GITHUB_OUTPUT"' . "\n",
+                        ],
+                        [
+                            'name' => 'Upload TIA baseline',
+                            'uses' => $this->action('actions/upload-artifact'),
+                            'with' => [
+                                'name' => 'pest-tia-baseline',
+                                'path' => '${{ steps.baseline.outputs.path }}',
+                                'include-hidden-files' => true,
+                                'retention-days' => 30,
+                            ],
+                        ],
+                    ],
+                ],
+            ],
+        ];
 
         return Yaml::dump($workflow);
     }
@@ -275,9 +347,16 @@ final class GitHubDriver extends AbstractDriver
             ];
         }
 
+        if ($job->bun !== null) {
+            $steps[] = [
+                'name' => 'Set up Bun',
+                'run' => PhpBootstrap::githubBunInstall($job->bun),
+            ];
+        }
+
         foreach ($job->caches as $cache) {
             $files = implode("', '", $cache->keyFiles);
-            $phpPart = $cache->name !== 'node' && $job->needsPhp() ? '-php-' . $phpRef : '';
+            $phpPart = $this->cacheKeyedByPhp($cache->name) && $job->needsPhp() ? '-php-' . $phpRef : '';
             $prefix = "{$cache->name}-\${{ runner.os }}{$phpPart}-";
             $steps[] = [
                 'name' => 'Cache ' . $cache->name . ' dependencies',
@@ -347,6 +426,33 @@ final class GitHubDriver extends AbstractDriver
     private function action(string $name): string
     {
         return $name . '@' . ($this->pins[$name] ?? self::ACTIONS[$name]);
+    }
+
+    /**
+     * @param  array<string,mixed>  $options
+     * @return array<string,mixed>
+     */
+    private function loadPins(array $options): array
+    {
+        $o = $options['options'] ?? [];
+        if (! is_array($o)) {
+            $o = [];
+        }
+
+        $this->assertOptions($o, ['runner', 'permissions', 'pins']);
+
+        $this->pins = [];
+        foreach ($o['pins'] ?? [] as $action => $ref) {
+            if (! isset(self::ACTIONS[$action]) || ! is_string($ref) || preg_match('/^[A-Za-z0-9._\/-]+$/D', $ref) !== 1) {
+                throw new InvalidArgumentException(sprintf(
+                    'github: option [pins] must map one of (%s) to a tag or commit SHA.',
+                    implode(', ', array_keys(self::ACTIONS))
+                ));
+            }
+            $this->pins[$action] = $ref;
+        }
+
+        return $o;
     }
 
     /**
