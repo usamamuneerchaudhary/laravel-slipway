@@ -14,6 +14,7 @@
 |   php artisan slipway:explain         describe the pipeline in plain English
 |   php artisan slipway:drivers         which features each provider supports
 |   php artisan slipway:test-pipeline   write ci-local.sh and run a stage in Docker
+|   php artisan slipway:tia             add pest()->tia() to an existing tests/Pest.php
 |
 | Keep this file free of closures so `php artisan config:cache` keeps working.
 | Secrets are referenced by NAME only. Never put a secret value in this file.
@@ -47,6 +48,9 @@ __DRIVERS__
 
     // Node version for steps that build front-end assets. null = the project has no Node build.
     'node' => null,
+
+    // Exact Bun version for build-assets preset bun, e.g. '1.2.21'.
+    // 'bun' => '1.2.21',
 
     // PHP extensions (setup-php on GitHub; compiled into the image on Bitbucket and GitLab).
     // 'extensions' => ['mbstring', 'dom', 'curl', 'libxml', 'zip', 'pcntl', 'pdo', 'bcmath', 'intl', 'exif', 'pdo_sqlite'],
@@ -86,7 +90,11 @@ __DRIVERS__
     |
     | Built-in aliases: pint, larastan, composer-validate, composer-audit, npm-audit,
     |                   npm-test, rector, secret-scan, pest, phpunit, infection,
-    |                   build-assets, build-artifact
+    |                   build-assets, build-artifact, sentry
+    |
+    | pest tia: ['tia' => true] writes .github/workflows/tia-baseline.yml (GitHub only).
+    |   The baseline uses --parallel when the pest step does, unless tia.parallel is set.
+    | build-assets presets: npm (default), vite (npx vite build unless script is set), bun (needs 'bun' => '1.2.21').
     |
     | Stage options: matrix, php, parallel (one job per step), services, timeout, on, env.
     |
