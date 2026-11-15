@@ -14,6 +14,7 @@ final class InitCommand extends Command
     protected $signature = 'slipway:init
         {--preset=app : Starter configuration: app, package or deploy}
         {--driver=* : Provider to enable (github, bitbucket, gitlab, circleci). Repeat for several}
+        {--branch= : Branch pushes CI should run on, such as main, master, or develop}
         {--force : Overwrite an existing configuration file}';
 
     protected $description = 'Create the Slipway configuration file from a preset';
@@ -25,7 +26,8 @@ final class InitCommand extends Command
         $enabled = $enabled === [] ? ['github'] : $enabled;
 
         try {
-            $contents = Presets::render($preset, $enabled, $drivers->names());
+            Presets::assertReady($preset, $enabled, $drivers->names());
+            $relative = Presets::target($preset);
         } catch (InvalidArgumentException $e) {
             $this->error($e->getMessage());
 
@@ -33,11 +35,23 @@ final class InitCommand extends Command
         }
 
         $root = $preset === Presets::PACKAGE ? (getcwd() ?: base_path()) : base_path();
-        $relative = Presets::target($preset);
         $target = rtrim($root, '/\\') . '/' . $relative;
 
         if (is_file($target) && ! $this->option('force')) {
             $this->error("{$relative} already exists. Use --force to overwrite it.");
+
+            return self::FAILURE;
+        }
+
+        $branch = $this->resolveBranch();
+        if ($branch === null) {
+            return self::FAILURE;
+        }
+
+        try {
+            $contents = Presets::render($preset, $enabled, $drivers->names(), $branch);
+        } catch (InvalidArgumentException $e) {
+            $this->error($e->getMessage());
 
             return self::FAILURE;
         }
@@ -55,7 +69,7 @@ final class InitCommand extends Command
             return self::FAILURE;
         }
 
-        $this->info("Created {$relative} (preset: {$preset}; providers: " . implode(', ', $enabled) . ').');
+        $this->info("Created {$relative} (preset: {$preset}; providers: " . implode(', ', $enabled) . "; branch: {$branch}).");
         $this->newLine();
         $this->line('Next steps:');
         $this->line("  1. Review {$relative}" . ($preset === Presets::DEPLOY ? ' and replace every TODO value' : ''));
@@ -63,5 +77,42 @@ final class InitCommand extends Command
         $this->line('  3. Commit the config AND the generated files. Never edit the generated files by hand.');
 
         return self::SUCCESS;
+    }
+
+    /**
+     * The branch pushes should run on.
+     *
+     * Returns null when the name cannot be written into the preset. A non-interactive run with no --branch uses main.
+     */
+    private function resolveBranch(): ?string
+    {
+        $requested = $this->option('branch');
+        if (is_string($requested) && trim($requested) !== '') {
+            return $this->validatedBranch($requested);
+        }
+
+        if ($this->input->isInteractive()) {
+            $answer = $this->ask('Which branch should CI run on?', 'main');
+
+            return $this->validatedBranch(is_string($answer) ? $answer : 'main');
+        }
+
+        return $this->validatedBranch('main');
+    }
+
+    /**
+     * Accept a branch name, or print why it was refused.
+     *
+     * Returns null when the name is empty or not a single branch CI can check out.
+     */
+    private function validatedBranch(string $branch): ?string
+    {
+        try {
+            return Presets::branch($branch);
+        } catch (InvalidArgumentException $e) {
+            $this->error($e->getMessage());
+
+            return null;
+        }
     }
 }

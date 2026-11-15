@@ -79,11 +79,44 @@ final class CommandsTest extends TestCase
 
     public function test_init_writes_the_config_and_refuses_to_overwrite_it(): void
     {
-        $this->artisan('slipway:init', ['--preset' => 'app', '--driver' => ['github']])->assertExitCode(0);
+        $this->artisan('slipway:init', ['--preset' => 'app', '--driver' => ['github'], '--no-interaction' => true])->assertExitCode(0);
         $this->assertFileExists($this->app->basePath('config/slipway.php'));
+        $this->assertStringContainsString("'push' => ['main'],", (string) file_get_contents($this->app->basePath('config/slipway.php')));
 
-        $this->artisan('slipway:init')->assertExitCode(1);
-        $this->artisan('slipway:init', ['--force' => true])->assertExitCode(0);
+        $this->artisan('slipway:init', ['--no-interaction' => true])->assertExitCode(1);
+        $this->artisan('slipway:init', ['--force' => true, '--no-interaction' => true])->assertExitCode(0);
+    }
+
+    public function test_init_asks_which_branch_ci_should_run_on(): void
+    {
+        $this->artisan('slipway:init', ['--preset' => 'app', '--driver' => ['github']])
+            ->expectsQuestion('Which branch should CI run on?', 'develop')
+            ->expectsOutputToContain('branch: develop')
+            ->assertExitCode(0);
+
+        $contents = (string) file_get_contents($this->app->basePath('config/slipway.php'));
+        $this->assertStringContainsString("'push' => ['develop'],", $contents);
+        $this->assertStringNotContainsString("'push' => ['main'],", $contents);
+    }
+
+    public function test_init_writes_a_branch_passed_on_the_command_line(): void
+    {
+        $this->artisan('slipway:init', ['--preset' => 'deploy', '--branch' => 'release/1.9'])
+            ->expectsOutputToContain('branch: release/1.9')
+            ->assertExitCode(0);
+
+        $contents = (string) file_get_contents($this->app->basePath('config/slipway.php'));
+        $this->assertStringContainsString("'push' => ['release/1.9'],", $contents);
+        $this->assertStringContainsString("'branch' => 'release/1.9',", $contents);
+    }
+
+    public function test_init_rejects_a_branch_that_would_break_the_generated_php(): void
+    {
+        $this->artisan('slipway:init', ['--branch' => "main'; phpinfo();//", '--no-interaction' => true])
+            ->expectsOutputToContain('is not a branch name')
+            ->assertExitCode(1);
+
+        $this->assertFileDoesNotExist($this->app->basePath('config/slipway.php'));
     }
 
     public function test_init_rejects_an_unknown_preset(): void

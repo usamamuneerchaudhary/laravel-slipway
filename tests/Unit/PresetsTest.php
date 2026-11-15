@@ -65,6 +65,37 @@ final class PresetsTest extends TestCase
         $this->assertStringContainsString('vendor/bin/testbench slipway:check', $yaml);
         $this->assertStringNotContainsString('key:generate', $yaml);
         $this->assertStringNotContainsString('php artisan', $yaml);
+        $this->assertStringNotContainsString('8.2', $yaml);
+        $this->assertStringContainsString('8.3', $yaml);
+        $this->assertStringContainsString('8.4', $yaml);
+    }
+
+    public function test_a_custom_branch_is_the_push_trigger_and_the_deploy_branch(): void
+    {
+        $app = $this->load(Presets::render('app', ['github'], branch: 'develop'));
+        $this->assertSame(['develop'], $app['triggers']['push']);
+
+        $deploy = $this->load(Presets::render('deploy', ['github'], branch: 'master'));
+        $this->assertSame(['master'], $deploy['triggers']['push']);
+        $this->assertSame('master', $deploy['environments']['staging']['branch']);
+
+        $yaml = Fixture::compile($deploy)->files['github']->contents;
+        $this->assertStringContainsString('- master', $yaml);
+        $this->assertStringNotContainsString("- main\n", $yaml);
+    }
+
+    public function test_a_branch_that_would_break_out_of_the_generated_php_is_rejected(): void
+    {
+        foreach (["main'; phpinfo();//", 'feature/../main', 'feature//wip', '-develop', 'develop.lock', ''] as $branch) {
+            try {
+                Presets::render('app', ['github'], branch: $branch);
+                $this->fail("expected [{$branch}] to be rejected");
+            } catch (InvalidArgumentException $e) {
+                $this->assertStringContainsString('is not a branch name', $e->getMessage());
+            }
+        }
+
+        $this->assertSame('release/1.9', Presets::branch('  release/1.9  '));
     }
 
     public function test_drivers_are_listed_with_the_requested_ones_enabled(): void

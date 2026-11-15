@@ -56,7 +56,7 @@ __DRIVERS__
     // 'extensions' => ['mbstring', 'dom', 'curl', 'libxml', 'zip', 'pcntl', 'pdo', 'bcmath', 'intl', 'exif', 'pdo_sqlite'],
 
     'triggers' => [
-        'push' => ['main'],            // branches (globs allowed); false disables
+        'push' => ['__BRANCH__'],            // branches (globs allowed); false disables
         'tags' => [],                  // e.g. ['v*'] to build and release on tags
         'pull_request' => true,        // true, false, or a list of target branches
         'schedule' => [],              // cron expressions (UTC), e.g. ['0 3 * * 1']

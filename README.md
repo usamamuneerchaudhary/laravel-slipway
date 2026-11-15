@@ -75,8 +75,10 @@ php artisan slipway:tia              # add pest()->tia()->locally()->baselined()
 composer require --dev usamamuneerchaudhary/laravel-slipway
 php artisan slipway:init                       # or --preset=deploy / --preset=package
 php artisan slipway:init --driver=github --driver=bitbucket
+php artisan slipway:init --branch=develop      # pushes CI should run on
 ```
 
+Setup asks which branch CI should run on. `--no-interaction` keeps `main`.
 Review the generated `config/slipway.php`, then:
 
 ```bash

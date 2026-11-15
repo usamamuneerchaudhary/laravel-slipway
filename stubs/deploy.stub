@@ -37,7 +37,7 @@ __DRIVERS__
     'node' => null,                    // TODO: '22' if you build assets with Vite
 
     'triggers' => [
-        'push' => ['main'],
+        'push' => ['__BRANCH__'],
         'tags' => [],
         'pull_request' => true,
         'schedule' => [],
@@ -65,7 +65,7 @@ __DRIVERS__
     'environments' => [
 
         'staging' => [
-            'branch' => 'main',
+            'branch' => '__BRANCH__',
             'via' => 'ssh',
             'verify' => ['url_secret' => 'STAGING_URL', 'path' => '/up'],
             'rollback' => true,

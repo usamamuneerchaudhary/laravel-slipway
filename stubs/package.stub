@@ -37,12 +37,12 @@ __DRIVERS__
     // Run Slipway's commands (drift check, secret scan) through Testbench.
     'artisan' => 'vendor/bin/testbench',
 
-    // Test every PHP version you support.
-    'php' => ['8.2', '8.3', '8.4'],
+    // Test every PHP version you support. Slipway itself needs PHP 8.3 or newer.
+    'php' => ['8.3', '8.4'],
     'node' => null,
 
     'triggers' => [
-        'push' => ['main'],
+        'push' => ['__BRANCH__'],
         'tags' => [],
         'pull_request' => true,
         'schedule' => ['0 3 * * 1'],   // weekly: catches breakage from new dependency releases

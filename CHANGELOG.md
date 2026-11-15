@@ -3,6 +3,16 @@
 All notable changes are documented here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 and the project follows [Semantic Versioning](https://semver.org/).
 
+## [1.9] - 2026-11-15
+
+### Added
+
+- `slipway:init` asks which branch pushes should run on. Pass `--branch=develop` (or `master`, `release/1.9`, or any other branch name) to skip the prompt. `--no-interaction` keeps `main`. The deploy preset uses that same branch for staging.
+
+### Fixed
+
+- The package preset no longer lists PHP 8.2. Slipway requires PHP 8.3, so a library matrix on 8.2 could not install it.
+
 ## [1.8] - 2026-10-17
 
 ### Added
