@@ -68,6 +68,16 @@ final class PresetsTest extends TestCase
         $this->assertStringNotContainsString('8.2', $yaml);
         $this->assertStringContainsString('8.3', $yaml);
         $this->assertStringContainsString('8.4', $yaml);
+        $this->assertStringContainsString('8.5', $yaml);
+    }
+
+    public function test_every_preset_tests_each_supported_php_version(): void
+    {
+        foreach (Presets::names() as $preset) {
+            $config = $this->load(Presets::render($preset, ['github']));
+
+            $this->assertSame(['8.3', '8.4', '8.5'], $config['php'], "preset [{$preset}]");
+        }
     }
 
     public function test_a_custom_branch_is_the_push_trigger_and_the_deploy_branch(): void

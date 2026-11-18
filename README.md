@@ -12,7 +12,7 @@
   <a href="https://packagist.org/packages/usamamuneerchaudhary/laravel-slipway"><img src="https://img.shields.io/packagist/l/usamamuneerchaudhary/laravel-slipway" alt="License"></a>
 </p>
 
-**Define your CI/CD once, in PHP. Compile it to GitHub Actions, Bitbucket Pipelines and GitLab CI.**
+**Define your CI/CD once, in PHP. Compile it to GitHub Actions, Bitbucket Pipelines, GitLab CI and CircleCI.**
 
 Slipway is a Laravel package that treats `config/slipway.php` as the single source of truth for your
 pipeline. The provider YAML files are *generated* from it, committed, and guarded: if somebody edits
@@ -24,7 +24,7 @@ a workflow by hand (or forgets to regenerate it), CI fails.
 // config/slipway.php
 return [
     'drivers' => ['github' => true, 'gitlab' => true],
-    'php'     => ['8.3', '8.4'],
+    'php'     => ['8.3', '8.4', '8.5'],
     'node'    => '22',
 
     'stages' => [
@@ -83,7 +83,7 @@ Review the generated `config/slipway.php`, then:
 
 ```bash
 php artisan slipway:compile
-git add config/slipway.php .github .gitlab-ci.yml bitbucket-pipelines.yml
+git add config/slipway.php .github .gitlab-ci.yml bitbucket-pipelines.yml .circleci
 ```
 
 Install it as a **dev** dependency. The build artifact is produced with `composer install --no-dev`, so

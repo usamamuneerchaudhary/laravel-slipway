@@ -1,6 +1,6 @@
 {
     "name": "usamamuneerchaudhary/laravel-slipway",
-    "description": "Define your CI/CD pipeline once in config/slipway.php and compile it to GitHub Actions, Bitbucket Pipelines and GitLab CI.",
+    "description": "Define your CI/CD pipeline once in PHP and compile it to GitHub Actions, Bitbucket Pipelines, GitLab CI and CircleCI.",
     "keywords": [
         "laravel",
         "ci",
@@ -9,6 +9,7 @@
         "github-actions",
         "bitbucket-pipelines",
         "gitlab-ci",
+        "circleci",
         "pipelines",
         "devops",
         "policy-as-code"

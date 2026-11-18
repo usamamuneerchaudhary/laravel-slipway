@@ -38,7 +38,7 @@ __DRIVERS__
     'artisan' => 'vendor/bin/testbench',
 
     // Test every PHP version you support. Slipway itself needs PHP 8.3 or newer.
-    'php' => ['8.3', '8.4'],
+    'php' => ['8.3', '8.4', '8.5'],
     'node' => null,
 
     'triggers' => [

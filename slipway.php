@@ -24,8 +24,8 @@ return [
             // Resolved with `vendor/bin/testbench slipway:pin`.
             'options' => [
                 'pins' => [
-                    'actions/cache' => '0057852bfaa89a56745cba8c7296529d2fc39830', // v4
-                    'actions/checkout' => '11d5960a326750d5838078e36cf38b85af677262', // v4
+                    'actions/cache' => '55cc8345863c7cc4c66a329aec7e433d2d1c52a9', // v6.1.0
+                    'actions/checkout' => '3d3c42e5aac5ba805825da76410c181273ba90b1', // v7.0.1
                     'shivammathur/setup-php' => 'eb7c497e18156a6bbabfef1d3a82760b9eda3962', // v2
                 ],
             ],
@@ -45,7 +45,7 @@ return [
     'artisan' => 'vendor/bin/testbench',
 
     // Every PHP version the package supports.
-    'php' => ['8.3', '8.4'],
+    'php' => ['8.3', '8.4', '8.5'],
     'node' => null,
 
     'triggers' => [

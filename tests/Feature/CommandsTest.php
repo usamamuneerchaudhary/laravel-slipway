@@ -259,7 +259,7 @@ final class CommandsTest extends TestCase
         config(['slipway' => Fixture::minimal()]);
 
         $this->artisan('slipway:pin')
-            ->expectsOutputToContain("'actions/checkout' => '{$sha}', // v4")
+            ->expectsOutputToContain("'actions/checkout' => '{$sha}', // v7")
             ->assertExitCode(0);
     }
 
@@ -436,7 +436,7 @@ final class CommandsTest extends TestCase
         ])]);
 
         $this->artisan('slipway:pin')
-            ->expectsOutputToContain("'actions/upload-artifact' => '{$sha}', // v4")
+            ->expectsOutputToContain("'actions/upload-artifact' => '{$sha}', // v7")
             ->assertExitCode(0);
     }
 
