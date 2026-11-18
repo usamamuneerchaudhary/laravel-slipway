@@ -45,7 +45,7 @@ return [
     'artisan' => 'vendor/bin/testbench',
 
     // Every PHP version the package supports.
-    'php' => ['8.3', '8.4'],
+    'php' => ['8.3', '8.4', '8.5'],
     'node' => null,
 
     'triggers' => [
