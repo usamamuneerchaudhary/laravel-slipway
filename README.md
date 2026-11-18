@@ -12,7 +12,7 @@
   <a href="https://packagist.org/packages/usamamuneerchaudhary/laravel-slipway"><img src="https://img.shields.io/packagist/l/usamamuneerchaudhary/laravel-slipway" alt="License"></a>
 </p>
 
-**Define your CI/CD once, in PHP. Compile it to GitHub Actions, Bitbucket Pipelines and GitLab CI.**
+**Define your CI/CD once, in PHP. Compile it to GitHub Actions, Bitbucket Pipelines, GitLab CI and CircleCI.**
 
 Slipway is a Laravel package that treats `config/slipway.php` as the single source of truth for your
 pipeline. The provider YAML files are *generated* from it, committed, and guarded: if somebody edits
