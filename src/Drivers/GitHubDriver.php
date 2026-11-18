@@ -347,7 +347,9 @@ final class GitHubDriver extends AbstractDriver
             $steps[] = [
                 'name' => 'Set up Node.js',
                 'uses' => $this->action('actions/setup-node'),
-                'with' => ['node-version' => $job->node],
+                // setup-node v5+ caches on its own when package.json names a package manager.
+                // Slipway manages dependency caches itself (and `cache => false` must mean none).
+                'with' => ['node-version' => $job->node, 'package-manager-cache' => false],
             ];
         }
 

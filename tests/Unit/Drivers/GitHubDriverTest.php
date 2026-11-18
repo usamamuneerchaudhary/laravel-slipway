@@ -46,6 +46,12 @@ final class GitHubDriverTest extends TestCase
         $this->assertDoesNotMatchRegularExpression('#uses: actions/[a-z-]+@v4\b#', $yaml);
     }
 
+    public function test_setup_node_leaves_dependency_caching_to_slipway(): void
+    {
+        $this->assertStringContainsString("node-version: \"22\"\n          package-manager-cache: false\n", $this->yaml());
+        $this->assertStringContainsString('package-manager-cache: false', $this->yaml(Fixture::full(['drivers' => ['github' => true], 'cache' => false])));
+    }
+
     public function test_pins_for_unknown_actions_are_rejected(): void
     {
         $this->expectException(ConfigException::class);
