@@ -83,7 +83,7 @@ Review the generated `config/slipway.php`, then:
 
 ```bash
 php artisan slipway:compile
-git add config/slipway.php .github .gitlab-ci.yml bitbucket-pipelines.yml
+git add config/slipway.php .github .gitlab-ci.yml bitbucket-pipelines.yml .circleci
 ```
 
 Install it as a **dev** dependency. The build artifact is produced with `composer install --no-dev`, so
