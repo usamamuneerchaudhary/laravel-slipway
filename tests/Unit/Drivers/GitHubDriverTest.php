@@ -36,6 +36,16 @@ final class GitHubDriverTest extends TestCase
         $this->assertStringContainsString('shivammathur/setup-php@v2', $yaml);
     }
 
+    public function test_default_actions_are_the_node_24_majors(): void
+    {
+        $yaml = $this->yaml();
+
+        foreach (['actions/checkout@v7', 'actions/cache@v6', 'actions/setup-node@v7', 'actions/upload-artifact@v7', 'actions/download-artifact@v8'] as $action) {
+            $this->assertStringContainsString("uses: {$action}\n", $yaml);
+        }
+        $this->assertDoesNotMatchRegularExpression('#uses: actions/[a-z-]+@v4\b#', $yaml);
+    }
+
     public function test_pins_for_unknown_actions_are_rejected(): void
     {
         $this->expectException(ConfigException::class);

@@ -25,13 +25,17 @@ use Usamamuneerchaudhary\Slipway\Support\Yaml;
  */
 final class GitHubDriver extends AbstractDriver
 {
-    /** Conservative defaults. Pin to commit SHAs through the `pins` option for supply-chain safety. */
+    /**
+     * Default major versions. Every actions/* default runs on Node.js 24: GitHub removed Node.js 20
+     * from hosted runners, and these majors need Actions Runner 2.327.1 or later on self-hosted runners.
+     * Pin to commit SHAs through the `pins` option for supply-chain safety.
+     */
     private const ACTIONS = [
-        'actions/checkout' => 'v4',
-        'actions/cache' => 'v4',
-        'actions/setup-node' => 'v4',
-        'actions/upload-artifact' => 'v4',
-        'actions/download-artifact' => 'v4',
+        'actions/checkout' => 'v7',
+        'actions/cache' => 'v6',
+        'actions/setup-node' => 'v7',
+        'actions/upload-artifact' => 'v7',
+        'actions/download-artifact' => 'v8',
         'shivammathur/setup-php' => 'v2',
     ];
 
