@@ -33,7 +33,7 @@ __DRIVERS__
     'guard' => true,
     'lockfile' => true,                // applications commit composer.lock
 
-    'php' => ['8.3', '8.4'],
+    'php' => ['8.3', '8.4', '8.5'],
     'node' => null,                    // TODO: '22' if you build assets with Vite
 
     'triggers' => [

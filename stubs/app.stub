@@ -44,7 +44,7 @@ __DRIVERS__
     'lockfile' => true,
 
     // PHP versions. Stages marked `matrix => true` run on all of them; other stages use the newest.
-    'php' => ['8.3', '8.4'],
+    'php' => ['8.3', '8.4', '8.5'],
 
     // Node version for steps that build front-end assets. null = the project has no Node build.
     'node' => null,

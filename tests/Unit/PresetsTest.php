@@ -68,6 +68,7 @@ final class PresetsTest extends TestCase
         $this->assertStringNotContainsString('8.2', $yaml);
         $this->assertStringContainsString('8.3', $yaml);
         $this->assertStringContainsString('8.4', $yaml);
+        $this->assertStringContainsString('8.5', $yaml);
     }
 
     public function test_a_custom_branch_is_the_push_trigger_and_the_deploy_branch(): void
