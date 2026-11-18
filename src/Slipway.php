@@ -47,7 +47,7 @@ use Usamamuneerchaudhary\Slipway\Support\Registry;
 final class Slipway
 {
     /** The released version. VersionTest keeps it equal to the newest entry in CHANGELOG.md. */
-    public const string VERSION = '1.9';
+    public const string VERSION = '1.10';
 
     /** @param (callable(class-string):object)|null $resolver Container `make`, for DI into user classes. */
     public static function steps(?callable $resolver = null): Registry

@@ -3,6 +3,30 @@
 All notable changes are documented here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 and the project follows [Semantic Versioning](https://semver.org/).
 
+## [1.10] - 2026-11-18
+
+Run `slipway:compile` once after upgrading and commit the result. The GitHub Actions output changes,
+so `slipway:check` reports committed GitHub workflows as out of date until they are regenerated.
+Self-hosted GitHub runners need Actions Runner 2.327.1 or later.
+
+### Changed
+
+- GitHub Actions defaults move to their Node.js 24 majors: `actions/checkout@v7`, `actions/cache@v6`,
+  `actions/setup-node@v7`, `actions/upload-artifact@v7` and `actions/download-artifact@v8`. GitHub
+  removed Node.js 20 from hosted runners. Actions pinned through `drivers.github.options.pins` keep
+  their pins; run `slipway:pin` to resolve SHAs for the new majors.
+- `actions/setup-node` is given `package-manager-cache: false`. Since v5 it caches on its own when
+  `package.json` names a package manager, which added a cache Slipway did not configure, even with
+  `'cache' => false`.
+- `slipway:init` presets and the published config test PHP 8.3, 8.4 and 8.5.
+
+### Fixed
+
+- `Slipway::VERSION` reported `1.8` in the 1.9 release. A test now keeps it equal to the newest
+  release in this changelog.
+- The Composer description and README name CircleCI, and the README commit example includes `.circleci`.
+- The Composer archive no longer ships the test suite, CI files or README images.
+
 ## [1.9] - 2026-11-15
 
 ### Added
