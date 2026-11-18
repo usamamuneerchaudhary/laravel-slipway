@@ -24,7 +24,7 @@ a workflow by hand (or forgets to regenerate it), CI fails.
 // config/slipway.php
 return [
     'drivers' => ['github' => true, 'gitlab' => true],
-    'php'     => ['8.3', '8.4'],
+    'php'     => ['8.3', '8.4', '8.5'],
     'node'    => '22',
 
     'stages' => [
